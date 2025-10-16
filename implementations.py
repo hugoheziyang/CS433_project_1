@@ -1,6 +1,6 @@
 import numpy as np
 
-### Main functions used in the project. 
+### Main functions in Step 2 of pdf used in the project. 
 
 def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
     """The Gradient Descent (GD) algorithm.
@@ -234,6 +234,5 @@ def NLL_g(y, tx, w):
     N = y.shape[0]
 
     return 1/N * tx.T @ (sigmoid(tx @ w) - y)
-
 
 
