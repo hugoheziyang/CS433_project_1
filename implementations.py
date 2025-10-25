@@ -202,7 +202,7 @@ def sigmoid(t):
 
 
 def NLL_loss(y, tx, w):
-    """compute the cost by negative log likelihood.
+    """compute the cost by negative log likelihood for y in {0, 1}. 
 
     Args:
         y:  shape=(N, )
@@ -221,7 +221,7 @@ def NLL_loss(y, tx, w):
     return float(loss)
 
 def NLL_g(y, tx, w):
-    """compute the gradient of negative log likelihood loss.
+    """compute the gradient of negative log likelihood loss for y in {0, 1}.
 
     Args:
         y:  shape=(N, )
