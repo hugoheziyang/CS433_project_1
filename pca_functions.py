@@ -61,3 +61,18 @@ def pca_transform(X, pca_model):
     Xc = X - pca_model["mean"]
     X_pca = Xc @ pca_model["components"]
     return X_pca  # shape: (N, k); X_pca[i, :] gives the coordinate of the i'th sample in PCA space
+
+
+
+### Add intercept term of column of 1s after PCA transform
+
+def add_intercept(X_pca):
+    """
+    Add a column of 1s to the input data Z (N x k) for intercept term.
+    Args:
+        X_pca: input data of shape (N, k)
+    Returns:
+        tx: design matrix; data with intercept term, shape (N, k + 1)
+    """
+    tx = np.c_[np.ones((X_pca.shape[0], 1)), X_pca]
+    return tx
