@@ -1,19 +1,29 @@
 # --- Complete preprocessing: load, filter, split, impute, recombine ---
 import h5py
 import numpy as np
-from nan_filtering import nan_feature_filter, nan_datapoint_filter
-from is_categorical_or_continuous import is_categorical
-from mean_mode_imputation import impute_train_test
-
+import os
+from helpers import load_csv_data
+from preprocessing_functions import *
 
 def preprocess_data():
-    with h5py.File("data/dataset/cached_data.h5", "r") as f:
-        x_train = f["x_train"][:]
-        x_test = f["x_test"][:]
-        y_train = f["y_train"][:]
-        train_ids = f["train_ids"][:]
-        test_ids = f["test_ids"][:]
+    if os.path.exists("data/dataset/cached_data.h5"):
+        # Load data from cached HDF5 file
+        with h5py.File("data/dataset/cached_data.h5", "r") as f:
+            x_train = f["x_train"][:]
+            x_test = f["x_test"][:]
+            y_train = f["y_train"][:]
+            train_ids = f["train_ids"][:]
+            test_ids = f["test_ids"][:]
+    else:
+        x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data/dataset", sub_sample=False)
 
+        # Save to HDF5 file
+        with h5py.File("data/dataset/cached_data.h5", "w") as f:
+            f.create_dataset("x_train", data=x_train)
+            f.create_dataset("x_test", data=x_test)
+            f.create_dataset("y_train", data=y_train)
+            f.create_dataset("train_ids", data=train_ids)
+            f.create_dataset("test_ids", data=test_ids)
 
     # Step 1: Feature filtering (remove features with >=80% NaNs)
     x_train_filtered, feature_mask = nan_feature_filter(x_train, cutoff_ratio=0.2)
@@ -43,4 +53,4 @@ def preprocess_data():
     x_test_final[:, continuous_mask] = x_test_cont_imp
     x_test_final[:, categorical_mask] = x_test_cat_imp
 
-    return x_train_final, x_test_final, y_train
+    return x_train_final, x_test_final, y_train, train_ids, test_ids

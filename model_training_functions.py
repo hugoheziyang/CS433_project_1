@@ -1,9 +1,124 @@
 import numpy as np
-from implementations import logistic_regression, reg_logistic_regression, NLL_loss, sigmoid
-from cross_validation_generator import *
-from pca_functions import *
+from implementations import reg_logistic_regression, logistic_regression, NLL_loss, sigmoid
 
-### Choose the best k (number of PCA components) via K-fold cross-validation
+### K-Fold Cross-Validation Indices Generator
+
+def kfold_indices(N, K=5, shuffle=True, seed=0):
+    """
+    Generate train/validation indices for K-fold cross-validation.
+
+    Args:
+        N (int): total number of samples
+        K (int): number of folds
+        shuffle (bool): whether to shuffle before splitting
+        seed (int): random seed for reproducibility
+
+    Yields:
+        (train_idx, val_idx): two 1D numpy arrays of indices
+
+    Example usage of generator:
+        for fold, (train_idx, val_idx) in enumerate(kfold_indices(N, K=5, shuffle=True, seed=42)):
+            print(f"Fold {fold+1}")
+            print("  train:", train_idx)
+            print("  val:  ", val_idx)
+
+    Another example:
+        for train_idx, val_idx in kfold_indices_list(N, K=5):
+            # do something        
+    """
+    rng = np.random.default_rng(seed)
+    indices = np.arange(N)
+    if shuffle:
+        rng.shuffle(indices)
+    folds = np.array_split(indices, K)
+
+    for i in range(K):
+        val_idx = folds[i]
+        train_idx = np.concatenate([folds[j] for j in range(K) if j != i])
+        yield train_idx, val_idx
+
+
+
+### Standardization
+
+def standardize_fit(X):
+    """
+    Fit per-feature mean and std on training data X (N x D).
+    Returns (mean, std), where std zeros are replaced by 1 to avoid division by zero.
+    """
+    mean = X.mean(axis=0)
+    std = X.std(axis=0, ddof=1)  # unbiased std
+    std_safe = np.where(std == 0, 1.0, std)
+    return mean, std_safe
+
+def standardize_transform(X, mean, std):
+    """Apply training mean/std to any data (train/val/test)."""
+    return (X - mean) / std
+
+
+
+### PCA via SVD
+
+def pca_fit(X, k):
+    """
+    Fit PCA on training data X (do not add column of 1s in X).
+    Uses economy SVD: Xc = U S V^T, principal axes are columns of V.
+    Returns a dict with components, mean, explained_variance, explained_variance_ratio.
+    """
+    mean = X.mean(axis=0)
+    Xc = X - mean
+
+    # Economy SVD; works for both N>=D and N<D
+    U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
+
+    # Principal directions (D x k), each column is a component
+    components = Vt[:k].T
+
+    # Explained variance of each PC; same as eigenvalues of covariance matrix Sigma = (Xc^T Xc) / (N - 1)
+    # Var along pc_i = S_i^2 / (N - 1)
+    N = X.shape[0]
+    eigvals = (S**2) / max(N - 1, 1)    # divide by N - 1 instead of N to get unbiased estimate 
+    explained_variance = eigvals[:k]
+    explained_variance_ratio = explained_variance / eigvals.sum()
+
+    return {
+        "mean": mean,
+        "components": components,              # shape: (D, k)
+        "explained_variance": explained_variance,
+        "explained_variance_ratio": explained_variance_ratio,
+    }
+
+def pca_transform(X, pca_model):
+    """
+    Project any data onto the k PCs learned from training data.
+    Args:
+        X: data to project, shape (N, D)
+        pca_model: dict returned by pca_fit, i.e. input pca_model = pca_fit(X, k)
+    Returns:
+        X_pca: projected data, shape (N, k)
+    """
+    Xc = X - pca_model["mean"]
+    X_pca = Xc @ pca_model["components"]
+    return X_pca  # shape: (N, k); X_pca[i, :] gives the coordinate of the i'th sample in PCA space
+
+
+
+### Add intercept term of column of 1s after PCA transform
+
+def add_intercept(X_pca):
+    """
+    Add a column of 1s to the input data Z (N x k) for intercept term.
+    Args:
+        X_pca: input data of shape (N, k)
+    Returns:
+        tx: design matrix; data with intercept term, shape (N, k + 1)
+    """
+    tx = np.c_[np.ones((X_pca.shape[0], 1)), X_pca]
+    return tx
+
+
+
+### Choose the best k (number of PCA components) via K-fold cross-validation; uses all functions above
 
 def cv_logreg_find_k(
     X, y_pm1, k_list, K=5, seed=0,
@@ -26,14 +141,14 @@ def cv_logreg_find_k(
     Returns: 
         best_k: integer, best number of PCA components
         best_lambda: float or None, best regularization strength (None if use_regularization is False)
-        cv_scores: dict mapping (k, lambda) tuples to mean validation loss
+        cv_loss: dict mapping (k, lambda) tuples to mean validation loss
     """
 
     # Remap original labels from ±1 to 0/1
     y = (y_pm1 + 1) / 2.0  
 
     N = X.shape[0]
-    cv_scores = {}
+    cv_loss = {}
     best_score = np.inf
     best_k, best_lambda = None, None
 
@@ -74,17 +189,17 @@ def cv_logreg_find_k(
                 fold_losses.append(val_loss)
 
             mean_loss = float(np.mean(fold_losses))
-            cv_scores[(k, lam)] = mean_loss
+            cv_loss[(k, lam)] = mean_loss
 
             if mean_loss < best_score:
                 best_score = mean_loss
                 best_k, best_lambda = k, lam
 
-    return best_k, (best_lambda if use_regularization else None), cv_scores
+    return best_k, (best_lambda if use_regularization else None), cv_loss
 
 
 
-### Train final model on full data with best hyperparameters
+### Train final logistic regression model with chosen k (and lambda if regularized)
 
 def train_final_logreg_model(
     X_train, y_train_pm1, k,
@@ -153,4 +268,47 @@ def train_final_logreg_model(
         "max_iters": max_iters,
         "gamma": gamma,
         "standardize": standardize,
+    }
+
+
+
+### Classify test data using trained logistic regression model 
+
+def classify_test_data(X_test, model):
+    """
+    Apply a trained logistic regression model (with PCA + standardization) to test data.
+
+    Args:
+        X_test: test data matrix, shape (N, D)
+        model: dict containing trained model and preprocessing info, i.e. output of train_final_logreg_model in log_reg_training.py
+    
+    Returns:
+        results: dict with keys
+            "yhat_prob": predicted probabilities P(y=1|x) on test set, shape (N, )
+            "yhat_label_pm1": predicted labels in {-1, +1} on test set, shape (N, )
+    """
+
+    # Extract artifacts of trained model
+    w = model["w"]
+    pca = model["pca_model"]
+    m_s, s_s = model["standardize_mean"], model["standardize_std"]
+    standardize = model["standardize"]
+
+    # Standardize test data from trained model, apply PCA, add intercept
+    if standardize:
+        Xte_std = (X_test - m_s) / s_s
+    else:
+        Xte_std = X_test
+
+    Zte = pca_transform(Xte_std, pca)
+    tx_te = add_intercept(Zte)
+
+    # Evaluate predictions
+    prob = sigmoid(tx_te @ w)                 # P(y=1 | x)
+    yhat01 = (prob >= 0.5).astype(int)      # predicted labels in {0, 1}, threshold 0.5 assumes balanced classes
+    yhat_pm1 = 2 * yhat01 - 1
+
+    return {
+        "yhat_prob": prob,
+        "yhat_label_pm1": yhat_pm1,
     }
