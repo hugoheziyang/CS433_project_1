@@ -1,4 +1,6 @@
-def is_categorical(X):
+import numpy as np
+
+def is_categorical(M, feature_mask):
 
     # Function
     # ---------
@@ -7,17 +9,13 @@ def is_categorical(X):
 
     # Inputs
     # ---------
-    # X       : (N x M) with N samples, M features
+    # M : number of features in the dataset
+    # feature_mask : (1 x P) mask of the P filtered features from the dataset
     
     # Outputs
     # ---------
-    # continuous_idx   :     (1 x p) array containing the indices of the p features marked as continuous or ordinal categorical
-    # categorical_idx    :     (1 x M-p) array containing the indices of the M-p features marked as categorical, not ordinal
-
-# --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    # Get the number of features M 
-    M = X.shape[1]                                         # X.shape returns [#lines, #columns] of X
+    # filtered_continuous_mask   :     (1 x P) 
+    # filtered_categorical_mask    :     (1 x P) 
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -28,7 +26,12 @@ def is_categorical(X):
     #                               [      idx[0]         idx[1]        idx[2]          idx[3]]       ...       idx[M]    ]
 
 
-    continuous_idx = [27, 28, 29, 30, 34, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 90, 91, 93, 94, 95, 9, 99, 100, 111, 112, 113, 114, 115, 116, 121, 122, 128, 129, 130, 132, 138, 139, 140, 141, 144, 146, 148, 149, 150, 151, 152, 153, 154, 155, 163, 172, 174, 176, 179, 181, 184, 189, 193, 194, 196, 198, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 247, 253, 257, 258, 259, 260, 267, 268, 269, 270, 271, 272, 277, 278, 288, 289, 292, 293, 294, 295, 296, 297, 298, 300, 301, 302, 303, 304, 305, 306]   
+    continuous_idx = [27, 28, 29, 30, 34, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 
+                      90, 91, 93, 94, 95, 9, 99, 100, 111, 112, 113, 114, 115, 116, 121, 122, 128, 129, 130, 132, 
+                      138, 139, 140, 141, 144, 146, 148, 149, 150, 151, 152, 153, 154, 155, 163, 172, 174, 176, 179, 
+                      181, 184, 189, 193, 194, 196, 198, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 247, 253, 
+                      257, 258, 259, 260, 267, 268, 269, 270, 271, 272, 277, 278, 288, 289, 292, 293, 294, 295, 296, 
+                      297, 298, 300, 301, 302, 303, 304, 305, 306]   
 
 #   IDX     Column  Name        Signification                                     
 #   27      AB      GENHLTH     General health?                     Encode 7 and 9 as NANs,     !! 1 means excellent, 5 means poor !! 
@@ -103,14 +106,16 @@ def is_categorical(X):
 #   289             FC60_       Estimated functionnal capacity
 #   292-->306                   Calculated minutes of activity
 
+    continuous_mask = np.zeros(M, dtype=bool)
+    continuous_mask[continuous_idx] = True
 
-    categorical_idx  = [i for i in range(M) if i not in continuous_idx]
+    filtered_continuous_mask  = continuous_mask[feature_mask]
+    
+    categorical_mask = np.ones(M, dtype=bool)
+    categorical_mask[continuous_mask] = False
+    filtered_categorical_mask = categorical_mask[feature_mask]
 
-    print("continuous/ordinal indexes : ", continuous_idx)
-    print("categorical indexes : ", categorical_idx) 
-
-
-    return continuous_idx, categorical_idx
+    return filtered_continuous_mask, filtered_categorical_mask
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
