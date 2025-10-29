@@ -101,6 +101,22 @@ def pca_transform(X, pca_model):
     X_pca = Xc @ pca_model["components"]
     return X_pca  # shape: (N, k); X_pca[i, :] gives the coordinate of the i'th sample in PCA space
 
+def choose_k(X, cutoff=0.9):
+    """
+    Choose the number of PCA components k to retain at least `cutoff` fraction of variance.
+    Args:
+        X: data matrix, shape (N, D)
+        cutoff: float in (0, 1), fraction of variance to retain
+    Returns:
+        k: integer, number of PCA components to retain at least `cutoff` variance
+    """
+    D = X.shape[1]
+    pca = pca_fit(X, D)
+    explained_variance_ratio = pca["explained_variance_ratio"]
+    cumulative = np.cumsum(explained_variance_ratio)
+    k = np.searchsorted(cumulative, cutoff) + 1
+    return k  
+
 
 
 ### Add intercept term of column of 1s after PCA transform
