@@ -30,11 +30,12 @@ The files:
 - `x_train.csv`
 - `y_train.csv`
 - `x_test.csv` 
+
 must be located in `./data/dataset` repository. This can be done simply by clicking on `dataset.zip` in the `./data` repository, which should automatically create `./data/dataset` repository.
 
 ---
 
-## Running model to create submission `.csv` file
+## Running model to create `submission.csv` file
 To create `.csv` submission on [EPFL Machine Learning Project 1 – AIcrowd Challenge](https://www.aicrowd.com/challenges/epfl-machine-learning-project-1), run the following in command line:
 
 ```bash
