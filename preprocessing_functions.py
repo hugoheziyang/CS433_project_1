@@ -69,13 +69,14 @@ def is_categorical(M, feature_mask):
     #                               [ Not a feature      Feature n°1   Feature n°2      Feature n°3   ...   Feature n° M  ]
     #                               [      idx[0]         idx[1]        idx[2]          idx[3]]       ...       idx[M]    ]
 
+
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+
     # continuous_idx : List of features that are continuous, or ordinal categorical 
     # These features don't need to be one-hot encoded
     # These features can undergo mean/median imputation 
     # This list's details are commented below
-
- # --------------------------------------------------------------------------------------------------------------------------------------------------------------
- # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     continuous_idx = [27, 28, 29, 30, 34, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 
                       90, 91, 93, 94, 95, 9, 99, 100, 111, 112, 113, 114, 115, 116, 121, 122, 128, 129, 130, 132, 
@@ -209,14 +210,16 @@ def is_categorical(M, feature_mask):
 
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    #  Categorical features partial RE-ENCODING :
+    #  Categorical features for partial RE-ENCODING :
 
     #   Before one-hot encoding categorical features, all features should be checked. 
     #   The general rule, that applies to most of them, is to re-encode : 
 
     #       - [7, 77, 777, 7777, 77777, 777777 9, 99, 999, 9999, 99999, 999999] as NAN ("Don’t know/Not Sure" , "Refused")
     #       - [8, 88, 888, 8888] as zeros ("None")
-    #       - (Do we need to check the ordinality : do the low "answers" have low encodings?) --> no need because the ordinality is coherent between the different answered values, even if it does not represent the reality
+
+
+    # (Do we need to check the ordinality : do the low "answers" have low encodings?) --> no because the ordinality is coherent between the different answered values, even if it does not represent the reality
 
     #   Features for which these rules don't apply are listed below : 
 
@@ -245,11 +248,11 @@ def is_categorical(M, feature_mask):
 
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    #  Features that  are in the grey zone :
+    #  Features that are in the grey zone :
     #  IDX          Column      Name                    Comments 
-    #  220..> 223   HM ..> HP   _STSTR --> _WT2RAKE     Kept. Weighting variables. Seem unuseful but not sure. Same for the phone weighting variable _LLCPWT
-    #  250          IQ          _AGE_G                  Kept. Multiple calculated variables for age, not understood if really useful
-
+    #  220..> 223   HM ..> HP   _STSTR --> _WT2RAKE     Kept. Weighting variables. Do not seem closely related to the disease, but not sure. Same for the phone weighting variable _LLCPWT
+    #  250          IQ          _AGE_G                  Kept. Multiple calculated variables for age
+    
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     # Features to pay attention to / may be more useful : in "Calculated variables" : 
