@@ -27,7 +27,7 @@ x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data()
 y_test = classify_test_data(x_test_final, model)["yhat_label_pm1"]
 
 # Save predictions to CSV file for submission
-create_csv_submission(test_ids, y_test, "y_test.csv")
+create_csv_submission(test_ids, y_test, "submission.csv")
 
     
 
