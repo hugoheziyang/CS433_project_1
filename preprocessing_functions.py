@@ -41,6 +41,8 @@ def is_categorical(M, feature_mask):
     Function
     ---------
     Separates the features into categorical or continuous/ordinal categorical
+    Finds the features to be suppressed
+    Prepares the one-hot encoding
     For now, done by hand due to the nature of the provided data
 
     Inputs
@@ -53,12 +55,27 @@ def is_categorical(M, feature_mask):
     filtered_continuous_mask   :     (1 x P) 
     filtered_categorical_mask    :     (1 x P) 
     """
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+    
+    # IMPORTANT !!
+    # Indexing starts with idx[1] = first feature!! 
+    # idx[0] is not a feature!! 
+    # This way, idx[i] is for feature n°i in X.
+
 
     # CSV has the following shape : [       A                B             C             D            ...   letter n° M+1 ]
     #                               [       Id            _State         FMONTH          IDATE        ...   Feature n° M  ]
     #                               [ Not a feature      Feature n°1   Feature n°2      Feature n°3   ...   Feature n° M  ]
     #                               [      idx[0]         idx[1]        idx[2]          idx[3]]       ...       idx[M]    ]
 
+    # continuous_idx : List of features that are continuous, or ordinal categorical 
+    # These features don't need to be one-hot encoded
+    # These features can undergo mean/median imputation 
+    # This list's details are commented below
+
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+ # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     continuous_idx = [27, 28, 29, 30, 34, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 
                       90, 91, 93, 94, 95, 9, 99, 100, 111, 112, 113, 114, 115, 116, 121, 122, 128, 129, 130, 132, 
@@ -67,7 +84,8 @@ def is_categorical(M, feature_mask):
                       257, 258, 259, 260, 267, 268, 269, 270, 271, 272, 277, 278, 288, 289, 292, 293, 294, 295, 296, 
                       297, 298, 300, 301, 302, 303, 304, 305, 306]   
 
-    #   IDX     Column  Name        Signification                                     
+    #   IDX     Column  Name        Signification 
+    #                                     
     #   27      AB      GENHLTH     General health?                     Encode 7 and 9 as NANs,     !! 1 means excellent, 5 means poor !! 
     #   28      AC      PHYSHLTH    Physical health not good?           Encode 77 and 99 as NANs, encode 88 as zeros
     #   29      AD      MENTHLTH    Mental health                       Encode 77 and 99 as NANs, encode 88 as zeros
@@ -153,34 +171,9 @@ def is_categorical(M, feature_mask):
 
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    #   IMPORTANT NOTES :
-
-    #   ORDINAL CATEGORICAL features should be checked : 
-
-    #                       Need to re-encode some values as NAN (ex: 77: did not want to answer)
-    #                       Need to re-encode some values as zeros (ex: 88: "none")
-    #                       Need to check the ordinality : do the low "answers" have low encodings?
-
-    # --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    #   Features that are CATEGORICAL : 
-    #   IDX     Column  Name           Comments   
-    #   1       B       State                   
-    #   31      AF      HLTHPLN1       Encode 7 and 9 as NANs
-    #   32      AE      PERSDOC2       Encode 7 and 9 ans NANs, Encode 3 as zero
-    #   33                             Encode 7 and 9 as NANs
-    #   35      AJ      BPHIGH4        Encode 7 and 9 as NANs
-    #   36 
-    #   37      AL      BLOODCHO
-    #   ... 
-    #      
-    #   Too many features to note them all, but need to reencode the 7-77 and 9-99 and also often the zeros     
-    #   Columns ~36 to ~71 : interesting features about heart and general health
-
-
-    # --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
     #   Features that should be SUPPRESSED : 
+
+    to_be_suppressed_idx = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 55, 56, 57, 60, 62, 106, 131, 217, 218, 228, 229, 230, 251]
 
     #   IDX     Column  Name        Comments       
     #   2       C       FMONTH
@@ -190,11 +183,19 @@ def is_categorical(M, feature_mask):
     #   6       G       IYEAR
     #   7       H       DISPCODE    Interview completed or not
     #   8       I       SEQNO       Record identification
-    #   9       J       PSU         Sampling Unit
+    #   9       J       _PSU         Sampling Unit
+    #   10              CTELENUM
+    #   11              PVTRESD1
+    #   12              COLGHOUS
+    #   13              STATERES
+    #   14              CELLFON3
+    #   15              LADULT
+    #   16              NUMADULT
     #   55      BD      NUMHHOL2    
     #   56      BE      NUMPHON2
     #   57      BF      CPDEMO1
     #   62      BK      INTERNET
+    #   106     DC      HIVTSTD3    Date of last HIV test.
     #   217     HJ      QSTVER      Questionnaire version, land or cell phone
     #   218     HK      QSTLANG     Language
     #   228     HU      _DUALUSE    Phone
@@ -204,32 +205,58 @@ def is_categorical(M, feature_mask):
 
     #   Many features would not have a significant incidence on the result of the study, including : 
     #   Phone number, housing in a private residence, housing in college, state residence, are you an adult (legality), number of adults in the household,
+    #   (Not all the suppressed features are in the commented list : too long) 
+
+    # --------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    #  Categorical features partial RE-ENCODING :
+
+    #   Before one-hot encoding categorical features, all features should be checked. 
+    #   The general rule, that applies to most of them, is to re-encode : 
+
+    #       - [7, 77, 777, 7777, 77777, 777777 9, 99, 999, 9999, 99999, 999999] as NAN ("Don’t know/Not Sure" , "Refused")
+    #       - [8, 88, 888, 8888] as zeros ("None")
+    #       - (Do we need to check the ordinality : do the low "answers" have low encodings?) --> no need because the ordinality is coherent between the different answered values, even if it does not represent the reality
+
+    #   Features for which these rules don't apply are listed below : 
+
+    #   EXECPTIONS : 
+
+    #       - Don't replace [7, 77, 777, 7777, 77777, 777777, 8, 88, 888, 8888, 9, 99, 999, 9999, 99999, 999999] : for indexes [1, 248, 251, 252, 265, 267, 268, 269, 270, 271, 272, 277, 278, 292, 293, 294, 295, 296, 297, 298, 300, 301, 302, 303, 304, 305]
+    #       - Don't replace [77, 88, 99, 777, 888, 999] : for indexes [63, 263]
+    #       - Don't replace [7, 8, 9, 77, 88, 99] : for indexes [151, 152, 286, 287]
+    #       - Don't replace [7, 8, 9, 77, 88] : for indexes [196, 198]
+    #       - Don't replace [7, 8, 9, 88] : for indexes [50]
+    #       - Don't replace [777, 888, 999] : for indexes [253, 254]
+    #       - Don't replace [7, 8, 9] : for indexes [28, 29, 30, 76, 79, 80, 81, 89, 92, 99, 103, 107, 113, 114, 115, 120, 123, 124, 207, 208, 209, 210, 211, 212, 213, 214, 247, 25, 263]  
+    #       - Don't replace [77, 88] : for indexes [147, 149, 150]  
+    #       - Don't replace [888] : for indexes [91, 94]
+    #       - Don't replace [77] : for indexes [148]
+    #       - Don't replace [7] : for indexes [225, 226, 240, 241, 243]
+
+    #       - Replace [555 by 0] : for indexes [82, 83, 84, 85, 86, 87]
+    #       - Replace [98 by 0] : for indexes [196, 198]
+
+    #       - Replace [98 by NAN] : for indexes [89, 92, 147, 148, 149, 150]
+    #       - Replace [97 by NAN] : for indexes [196, 198]
+    #       - Replace [900 by NAN] : for indexes [263]
+    #       - Replace [99900 by NAN] : for indexes [265, 288, 289]
+    #       - Replace [99000 by NAN] : for indexes [294, 295, 298]
 
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     #  Features that  are in the grey zone :
     #  IDX          Column      Name                    Comments 
-    #  106          DC          HIVTSTD3                Date of last HIV test. ordered categorical, but tricky encoding and maybe not worth it to hot one reincode it
-    #  220..> 223   HM ..> HP   _STSTR --> _WT2RAKE     Weighting variables. Seem unuseful but not sure. Same for the phone weighting variable _LLCPWT
-    #  250          IQ          _AGE_G                  Multiple calculated variables for age, not understood if really useful
+    #  220..> 223   HM ..> HP   _STSTR --> _WT2RAKE     Kept. Weighting variables. Seem unuseful but not sure. Same for the phone weighting variable _LLCPWT
+    #  250          IQ          _AGE_G                  Kept. Multiple calculated variables for age, not understood if really useful
 
     # --------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    # Features not found (hidden): 
-
-    # PAINACT2
-    # QLMENTL2
-    # QLSTRES2
-    # QLHLTH2
-
-    # --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-    # Features that may be useful : calculated variables : 
+    # Features to pay attention to / may be more useful : in "Calculated variables" : 
 
     #   IDX     Column      Name        Comments 
     #   231     HX          _RFHLTH     "General level of health"  
     #   235     IB          _RFCHOL     "High cholesterol"    
-
 
 
 ### Impute missing values in continuous and categorical data
