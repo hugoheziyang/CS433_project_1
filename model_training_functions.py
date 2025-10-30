@@ -188,7 +188,8 @@ def cv_logreg(
     # Setup
     N = X.shape[0]
     cv_loss = {}
-    best_score = np.inf
+    # We'll maximize mean F1 score across folds, so initialize to -inf
+    best_score = -np.inf
     best_gamma, best_lambda = None, None
 
     # Input lambda_grid, execpt if no regulariztaiton
@@ -205,7 +206,8 @@ def cv_logreg(
                     f"\n[cv_logreg] Starting evaluation for gamma={gamma}, lambda={lam}"
                 )
             hp_start = time.time()
-            fold_losses = []
+            # collect per-fold F1 scores (we'll maximize mean F1)
+            fold_scores = []
 
             # Extract the fold samples
             for fold_i, (tr_idx, val_idx) in enumerate(folds, start=1):
@@ -257,26 +259,46 @@ def cv_logreg(
                 else:
                     w, _ = logistic_regression(y_tr, tx_tr, initial_w, max_iters, gamma)
 
-                # Validation loss with NLL_loss
-                val_loss = NLL_loss(y_val, tx_val, w)  # no reg term in score
+                # Build model dict compatible with classify_test_data / compute_f1_on_train
+                # Note: pass the original (untransformed) X_val and corresponding y in {-1,+1}
+                model = {
+                    "w": w,
+                    "pca_model": pca,
+                    "standardize_mean": (m if standardize else None),
+                    "standardize_std": (s if standardize else None),
+                    "k": k,
+                    "use_regularization": use_regularization,
+                    "lambda_": (lam if use_regularization else None),
+                    "max_iters": max_iters,
+                    "gamma": gamma,
+                    "standardize": standardize,
+                }
 
-                # Safety check: handle NaN or inf losses
-                if not np.isfinite(val_loss):
-                    val_loss = np.inf
+                # Compute F1 on this fold's validation set using existing helper
+                # y_pm1 is available in outer scope (original labels in {-1,+1})
+                _, _, f1 = compute_f1_on_train(
+                    model=model, x_train_final=X_val, y_train=y_pm1[val_idx], verbose=False
+                )
 
-                fold_losses.append(val_loss)
+                # Safety: ensure numeric
+                if not np.isfinite(f1):
+                    f1 = 0.0
+
+                fold_scores.append(f1)
                 if verbose:
-                    print(f"  [fold {fold_i}/{K}] val_loss = {val_loss:.6f}")
+                    print(f"  [fold {fold_i}/{K}] val_f1 = {f1:.6f}")
 
-            mean_loss = float(np.mean(fold_losses))
+            mean_loss = float(np.mean(fold_scores))
             hp_elapsed = time.time() - hp_start
             if verbose:
                 print(
-                    f" => mean validation loss for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)"
+                    f" => mean validation F1 for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)"
                 )
+            # Store mean F1 in cv_loss dict (name kept for backward compatibility)
             cv_loss[(gamma, lam)] = mean_loss
 
-            if mean_loss < best_score:
+            # Higher F1 is better
+            if mean_loss > best_score:
                 best_score = mean_loss
                 best_gamma, best_lambda = gamma, lam
 
