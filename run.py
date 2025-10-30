@@ -3,7 +3,7 @@ import os
 from helpers import create_csv_submission
 from preprocessing_subroutine import preprocess_data
 from model_training_subroutine import model_training
-from model_training_functions import classify_test_data
+from model_training_functions import classify_test_data, compute_f1_on_train
 
 MODEL_PATH = "final_logreg_model.pkl"
 
@@ -22,6 +22,8 @@ else:
 
 # Get preprocessed test data (x_test_final) from preprocessing subroutine
 x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(verbose=True)
+
+compute_f1_on_train(model=model, x_train_final=x_train_final,  y_train=y_train, verbose=True)
 
 # Classify test data
 y_test = classify_test_data(x_test_final, model)["yhat_label_pm1"]

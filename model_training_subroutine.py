@@ -28,16 +28,16 @@ def model_training():
     lambda_list = [0.001, 0.01, 0.1] # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
 
     K = 5   # number of folds for cross-validation    
-    k = 90  # PCA : fix k the number of selected principal components
+    k = 15  # PCA : fix k the number of selected principal components
     seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
   
     standardize = True  # whether to standardize features before PCA
     use_regularization = True  # whether to use ridge regularization in logistic regression
-    max_iters = 2000  # maximum number of iterations for logistic regression training 
+    max_iters = 200  # maximum number of iterations for logistic regression training 
 
     # Cross-validation for (and gamma, lambda)
     best_gamma, best_lambda, cv_loss = cv_logreg(X=x_train_final, y_pm1=y_train, gamma_list=gamma_list, lambda_list=lambda_list, K=K, k=k,
-                                                    seed=seed, standardize=standardize, use_regularization=use_regularization, max_iters=max_iters)
+                                                    seed=seed, standardize=standardize, use_regularization=use_regularization, max_iters=max_iters, verbose=True)
     
     # Train final model with best k (and lambda if regularized) and store it in the dictionary model with the following keys: 
     #   "w": optimal weights, numpy array of shape(D,), D is the number of features after PCA + adding column of 1s.
@@ -58,7 +58,8 @@ def model_training():
         lambda_=best_lambda,
         max_iters=max_iters,
         gamma=best_gamma,
-        standardize=standardize)
+        standardize=standardize,
+        verbose=True)
     
     # Save model using Python's pickle (standard library). This stores nested
     # dictionaries and arbitrary Python objects without wrapping them in 0-d
