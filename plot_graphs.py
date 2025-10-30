@@ -29,19 +29,19 @@ def plot_explained_variance(pca_model):
 ### Plot mean validation loss over (gamma, lambda) grid
 
 
-def plot_cv_surface(cv_loss, best_gamma, best_lambda, fontsize=13):
+def plot_cv_surface(cv_f1, best_gamma, best_lambda, fontsize=13):
     """
     Visualize mean validation loss over (gamma, lambda) grid.
     Args:
-        cv_loss: dict {(gamma, lambda): mean_loss}
+        cv_f1: dict {(gamma, lambda): mean_f1_score}
         best_gamma: float
         best_lambda: float
         fontsize: base font size for labels, legend, etc.
     """
 
     # Collect unique grid values in sorted order
-    gammas = sorted({g for (g, l) in cv_loss.keys()})
-    lambdas = sorted({l for (g, l) in cv_loss.keys()})
+    gammas = sorted({g for (g, l) in cv_f1.keys()})
+    lambdas = sorted({l for (g, l) in cv_f1.keys()})
 
     # Sanity: log10 requires positive values
     if any(g <= 0 for g in gammas) or any(l <= 0 for l in lambdas):
@@ -52,7 +52,7 @@ def plot_cv_surface(cv_loss, best_gamma, best_lambda, fontsize=13):
     loss_matrix = np.empty((M, N))
     for i, g in enumerate(gammas):
         for j, l in enumerate(lambdas):
-            loss_matrix[i, j] = cv_loss[(g, l)]
+            loss_matrix[i, j] = cv_f1[(g, l)]
 
     # Log coordinates
     gx = np.log10(np.array(gammas))
@@ -73,7 +73,7 @@ def plot_cv_surface(cv_loss, best_gamma, best_lambda, fontsize=13):
         interpolation="nearest",
     )
     cbar = plt.colorbar(im)
-    cbar.set_label("Mean validation loss", fontsize=fontsize)
+    cbar.set_label("Mean validation F1", fontsize=fontsize)
 
     # Best point
     plt.scatter(
@@ -88,7 +88,7 @@ def plot_cv_surface(cv_loss, best_gamma, best_lambda, fontsize=13):
     # Labels / title
     plt.xlabel("log10(lambda)", fontsize=fontsize)
     plt.ylabel("log10(gamma)", fontsize=fontsize)
-    plt.title("Cross-Validation Loss Surface", fontsize=fontsize + 2)
+    plt.title("Cross-Validation F1 Surface", fontsize=fontsize + 2)
     plt.legend(fontsize=fontsize)
 
     # Ticks as scientific notation (works for 1-value cases too)
