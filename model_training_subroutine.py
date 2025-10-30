@@ -4,9 +4,9 @@ import numpy as np
 import pickle
 from preprocessing_subroutine import preprocess_data
 from model_training_functions import *
+import argparse
 
-
-def model_training():
+def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
     ### Step 1: Preprocess data
     x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(
         verbose=True
@@ -25,28 +25,28 @@ def model_training():
     # 3. Average the validation losses over folds for each (gamma, lambda) pair.
     # 4. Pick the optimal pair (gamma, lambda) which minimises the average validation loss.
     # 5. Retrain on full preprocessed training set x_train_final using the chosen value of k and cache the model to .h5 file
-
+    
     # Variables subject to modification
-    gamma_list = [
-        0.001,
-        0.01,
-        0.1,
-    ]  # step size for logistic regression training # start with coarse grid search with 3 values and refine later
-    lambda_list = [
-        0.001,
-        0.01,
-        0.1,
-    ]  # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
-
-    K = 5  # number of folds for cross-validation
-    k = 15  # PCA : fix k the number of selected principal components
-    seed = 42  # random seed for reproducibility in K-fold cross validation splitting
-
+    if gamma_list is None:
+        gamma_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] # step size for logistic regression training # start with coarse grid search with 3 values and refine later
+    
+    if lambda_list is None:
+        lambda_list = [0.001, 0.01, 0.1] # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
+ 
+    if k is None:
+        k = 15  # PCA : fix k the number of selected principal components
+    
+    K = 5   # number of folds for cross-validation   
+    seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
+  
     standardize = True  # whether to standardize features before PCA
     use_regularization = (
         True  # whether to use ridge regularization in logistic regression
     )
     max_iters = 200  # maximum number of iterations for logistic regression training
+
+    if verbose:
+        print(f"model_training: starting cross-validation with k={k}, gamma_list={gamma_list}, lambda_list={lambda_list}", flush=True)
 
     # Cross-validation for (and gamma, lambda)
     best_gamma, best_lambda, cv_loss = cv_logreg(
@@ -75,8 +75,10 @@ def model_training():
     #   "gamma": step size used in training
     #   "standardize": whether standardization was used
 
-    model = train_final_logreg_model(
-        X_train=x_train_final,
+    if verbose:
+        print(f"model_training: training final model with k={k}, lambda={best_lambda}, gamma={best_gamma}", flush=True)
+
+    model = train_final_logreg_model(X_train=x_train_final,
         y_train_pm1=y_train,
         k=k,
         use_regularization=use_regularization,
@@ -90,7 +92,7 @@ def model_training():
     # Save model using Python's pickle (standard library). This stores nested
     # dictionaries and arbitrary Python objects without wrapping them in 0-d
     # object arrays (unlike np.savez). The file will be named final_logreg_model.pkl.
-    with open("final_logreg_model.pkl", "wb") as fh:
+    with open(f"k={k}_lambda={lambda_list[0]}_logreg_model.pkl", "wb") as fh:
         pickle.dump(model, fh)
 
     # To load the model back, use:
@@ -98,6 +100,34 @@ def model_training():
     # with open("final_logreg_model.pkl", "rb") as fh:
     #     loaded_model = pickle.load(fh)
 
+    return model
 
 if __name__ == "__main__":
-    model_training()
+    parser = argparse.ArgumentParser(description="Train logistic regression model with optional k and lambda from CLI.")
+    parser.add_argument("--k", type=int, help="Number of PCA components to keep (overrides default).")
+    parser.add_argument("--lambda", dest="lambda_val", type=float,
+                        help="Single regularization strength to use (will be passed as a one-element list).")
+    parser.add_argument("--lambda-list", dest="lambda_list", nargs="+", type=float,
+                        help="Space-separated list of candidate lambda values for CV.")
+    parser.add_argument("--gamma-list", dest="gamma_list", nargs="+", type=float,
+                        help="Space-separated list of candidate gamma (step-size) values for CV.")
+    args = parser.parse_args()
+
+    k = args.k if args.k is not None else None
+
+    if args.lambda_list is not None:
+        lambda_list = args.lambda_list
+    elif args.lambda_val is not None:
+        lambda_list = [args.lambda_val]
+    else:
+        lambda_list = None
+
+    gamma_list = args.gamma_list if args.gamma_list is not None else None
+
+    model = model_training(k=k, gamma_list=gamma_list, lambda_list=lambda_list)
+
+    # Print Loss on training data
+    print(f"Training Loss: {model['loss']}")
+
+    # Compute F1 score on training data
+    compute_f1_on_train(model=model, verbose=True)
