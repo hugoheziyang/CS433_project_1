@@ -304,7 +304,7 @@ def cv_logreg(
 
     if verbose:
         print(
-            f"\n[cv_logreg] Best params found: gamma={best_gamma}, lambda={best_lambda} with mean val loss={best_score:.6f}"
+            f"\n[cv_logreg] Best params found: gamma={best_gamma}, lambda={best_lambda} with mean f1={best_score:.6f}"
         )
 
     return best_gamma, (best_lambda if use_regularization else None), cv_f1
