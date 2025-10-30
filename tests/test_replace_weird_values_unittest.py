@@ -13,6 +13,7 @@ def _load_module(path):
 class ReplaceWeirdValuesUnitTest(unittest.TestCase):
     def setUp(self):
         from pathlib import Path
+
         # tests/ sits inside the root folder; the module file lives one level up
         mod_path = Path(__file__).parent.parent / "preprocessing_functions.py"
         mod = _load_module(str(mod_path))
@@ -23,17 +24,17 @@ class ReplaceWeirdValuesUnitTest(unittest.TestCase):
         self.X = np.ones((rows, cols), dtype=float)
 
         # Generic replacements (not in exception lists): col 10
-        self.X[0, 10] = 7    # should become NaN (general nan_values)
-        self.X[1, 10] = 8    # should become 0 (general zero_values)
+        self.X[0, 10] = 7  # should become NaN (general nan_values)
+        self.X[1, 10] = 8  # should become 0 (general zero_values)
 
         # Column in full no-replace list: col 1 should stay unchanged
         self.X[0, 1] = 7
         self.X[0, 248] = 8
 
-        self.X[0, 28] = 9 # should stay unchanged
+        self.X[0, 28] = 9  # should stay unchanged
 
         # Specific replacements
-        self.X[0, 82] = 555   # should become 0 (82 in [82..87])
+        self.X[0, 82] = 555  # should become 0 (82 in [82..87])
         self.X[0, 83] = 555
 
         # 196: replace 97->NaN and 98->0 per rules
@@ -61,7 +62,9 @@ class ReplaceWeirdValuesUnitTest(unittest.TestCase):
 
         # No-replace-all
         self.assertEqual(Y[0, 1], 7, "col 1 is in no-replace-all and should remain 7")
-        self.assertEqual(Y[0, 248], 8, "col 248 is in no-replace-all and should remain 8")
+        self.assertEqual(
+            Y[0, 248], 8, "col 248 is in no-replace-all and should remain 8"
+        )
 
         self.assertEqual(Y[0, 28], 9, "col 280 should remain 9")
 
@@ -78,5 +81,5 @@ class ReplaceWeirdValuesUnitTest(unittest.TestCase):
         self.assertTrue(np.isnan(Y[0, 294]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

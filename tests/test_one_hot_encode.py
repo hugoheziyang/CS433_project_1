@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 # Ensure the project module directory (parent of this tests folder) is on sys.path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from preprocessing_functions import one_hot_encode
 from preprocessing_functions import one_hot_encode_columns
@@ -25,7 +25,9 @@ class TestOneHotEncode(unittest.TestCase):
         nan_mask = np.isnan(g)
         for i, is_nan in enumerate(nan_mask):
             if is_nan:
-                self.assertTrue(np.all(one_hot[i] == 0), msg=f"row {i} expected all zeros")
+                self.assertTrue(
+                    np.all(one_hot[i] == 0), msg=f"row {i} expected all zeros"
+                )
             else:
                 # non-NaN rows should have exactly one '1'
                 self.assertEqual(one_hot[i].sum(), 1)
@@ -41,12 +43,7 @@ class TestOneHotEncode(unittest.TestCase):
 
     def test_multi_column_encode(self):
         # Create a dataset with 3 columns; encode columns 0 and 2
-        X = np.array([
-            [1, 10, 2],
-            [2, 11, np.nan],
-            [1, 12, 3],
-            [3, 13, 2]
-        ], dtype=float)
+        X = np.array([[1, 10, 2], [2, 11, np.nan], [1, 12, 3], [3, 13, 2]], dtype=float)
 
         # mask: True for columns to encode
         mask = [True, False, True]
@@ -75,7 +72,7 @@ class TestOneHotEncode(unittest.TestCase):
 
         # Rows that originally had NaN in col2 (row index 1) should have zeros in the block
         # corresponding to vocab1 (the last len(vocab1) columns)
-        last_block = X_new[:, -len(vocab1):]
+        last_block = X_new[:, -len(vocab1) :]
         self.assertTrue(np.all(last_block[1] == 0))
 
 

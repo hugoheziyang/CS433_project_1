@@ -1,17 +1,20 @@
-# --- Complete model training on train data: preprocess data, cross-validation, standardization, PCA transformation, 
+# --- Complete model training on train data: preprocess data, cross-validation, standardization, PCA transformation,
 # hyperparameter count determination, train logistic regression model ---
 import numpy as np
 import pickle
 from preprocessing_subroutine import preprocess_data
 from model_training_functions import *
 
+
 def model_training():
     ### Step 1: Preprocess data
-    x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(verbose=True)
+    x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(
+        verbose=True
+    )
 
     ### Step 2: Train final model by following the procedure:
     # 1. Split data into K folds to prepare for cross validation
-    # 2. Set up a list of candidate gamma values (learning rates) and a number of lambda values (regularization strengths) 
+    # 2. Set up a list of candidate gamma values (learning rates) and a number of lambda values (regularization strengths)
     #    For each gamma candidate:
     #        For each lambda candidate:
     #            For each training/validation split:
@@ -24,22 +27,43 @@ def model_training():
     # 5. Retrain on full preprocessed training set x_train_final using the chosen value of k and cache the model to .h5 file
 
     # Variables subject to modification
-    gamma_list = [0.001, 0.01, 0.1] # step size for logistic regression training # start with coarse grid search with 3 values and refine later
-    lambda_list = [0.001, 0.01, 0.1] # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
+    gamma_list = [
+        0.001,
+        0.01,
+        0.1,
+    ]  # step size for logistic regression training # start with coarse grid search with 3 values and refine later
+    lambda_list = [
+        0.001,
+        0.01,
+        0.1,
+    ]  # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
 
-    K = 5   # number of folds for cross-validation    
+    K = 5  # number of folds for cross-validation
     k = 15  # PCA : fix k the number of selected principal components
-    seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
-  
+    seed = 42  # random seed for reproducibility in K-fold cross validation splitting
+
     standardize = True  # whether to standardize features before PCA
-    use_regularization = True  # whether to use ridge regularization in logistic regression
-    max_iters = 200  # maximum number of iterations for logistic regression training 
+    use_regularization = (
+        True  # whether to use ridge regularization in logistic regression
+    )
+    max_iters = 200  # maximum number of iterations for logistic regression training
 
     # Cross-validation for (and gamma, lambda)
-    best_gamma, best_lambda, cv_loss = cv_logreg(X=x_train_final, y_pm1=y_train, gamma_list=gamma_list, lambda_list=lambda_list, K=K, k=k,
-                                                    seed=seed, standardize=standardize, use_regularization=use_regularization, max_iters=max_iters, verbose=True)
-    
-    # Train final model with best k (and lambda if regularized) and store it in the dictionary model with the following keys: 
+    best_gamma, best_lambda, cv_loss = cv_logreg(
+        X=x_train_final,
+        y_pm1=y_train,
+        gamma_list=gamma_list,
+        lambda_list=lambda_list,
+        K=K,
+        k=k,
+        seed=seed,
+        standardize=standardize,
+        use_regularization=use_regularization,
+        max_iters=max_iters,
+        verbose=True,
+    )
+
+    # Train final model with best k (and lambda if regularized) and store it in the dictionary model with the following keys:
     #   "w": optimal weights, numpy array of shape(D,), D is the number of features after PCA + adding column of 1s.
     #   "pca_model": dict returned by pca_fit on training data
     #   "standardize_mean": mean used for standardization (None if standardize is False)
@@ -51,7 +75,8 @@ def model_training():
     #   "gamma": step size used in training
     #   "standardize": whether standardization was used
 
-    model = train_final_logreg_model(X_train=x_train_final,
+    model = train_final_logreg_model(
+        X_train=x_train_final,
         y_train_pm1=y_train,
         k=k,
         use_regularization=use_regularization,
@@ -59,8 +84,9 @@ def model_training():
         max_iters=max_iters,
         gamma=best_gamma,
         standardize=standardize,
-        verbose=True)
-    
+        verbose=True,
+    )
+
     # Save model using Python's pickle (standard library). This stores nested
     # dictionaries and arbitrary Python objects without wrapping them in 0-d
     # object arrays (unlike np.savez). The file will be named final_logreg_model.pkl.
@@ -71,6 +97,7 @@ def model_training():
     # import pickle
     # with open("final_logreg_model.pkl", "rb") as fh:
     #     loaded_model = pickle.load(fh)
+
 
 if __name__ == "__main__":
     model_training()

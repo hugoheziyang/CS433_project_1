@@ -3,9 +3,15 @@ import pickle
 import os
 import numpy as np
 import time
-from implementations import reg_logistic_regression, logistic_regression, NLL_loss, sigmoid
+from implementations import (
+    reg_logistic_regression,
+    logistic_regression,
+    NLL_loss,
+    sigmoid,
+)
 
 ### K-Fold Cross-Validation Indices Generator
+
 
 def kfold_indices(N, K=5, shuffle=True, seed=0):
     """
@@ -28,7 +34,7 @@ def kfold_indices(N, K=5, shuffle=True, seed=0):
 
     Another example:
         for train_idx, val_idx in kfold_indices_list(N, K=5):
-            # do something        
+            # do something
     """
     rng = np.random.default_rng(seed)
     indices = np.arange(N)
@@ -42,8 +48,8 @@ def kfold_indices(N, K=5, shuffle=True, seed=0):
         yield train_idx, val_idx
 
 
-
 ### Standardization
+
 
 def standardize_fit(X):
     """
@@ -55,13 +61,14 @@ def standardize_fit(X):
     std_safe = np.where(std == 0, 1.0, std)
     return mean, std_safe
 
+
 def standardize_transform(X, mean, std):
     """Apply training mean/std to any data (train/val/test)."""
     return (X - mean) / std
 
 
-
 ### PCA via SVD
+
 
 def pca_fit(X, k):
     """
@@ -81,16 +88,19 @@ def pca_fit(X, k):
     # Explained variance of each PC; same as eigenvalues of covariance matrix Sigma = (Xc^T Xc) / (N - 1)
     # Var along pc_i = S_i^2 / (N - 1)
     N = X.shape[0]
-    eigvals = (S**2) / max(N - 1, 1)    # divide by N - 1 instead of N to get unbiased estimate 
+    eigvals = (S**2) / max(
+        N - 1, 1
+    )  # divide by N - 1 instead of N to get unbiased estimate
     explained_variance = eigvals[:k]
     explained_variance_ratio = explained_variance / eigvals.sum()
 
     return {
         "mean": mean,
-        "components": components,              # shape: (D, k)
+        "components": components,  # shape: (D, k)
         "explained_variance": explained_variance,
         "explained_variance_ratio": explained_variance_ratio,
     }
+
 
 def pca_transform(X, pca_model):
     """
@@ -104,6 +114,7 @@ def pca_transform(X, pca_model):
     Xc = X - pca_model["mean"]
     X_pca = Xc @ pca_model["components"]
     return X_pca  # shape: (N, k); X_pca[i, :] gives the coordinate of the i'th sample in PCA space
+
 
 def choose_k(X, cutoff=0.999):
     """
@@ -119,11 +130,11 @@ def choose_k(X, cutoff=0.999):
     explained_variance_ratio = pca["explained_variance_ratio"]
     cumulative = np.cumsum(explained_variance_ratio)
     k = np.searchsorted(cumulative, cutoff) + 1
-    return k  
-
+    return k
 
 
 ### Add intercept term of column of 1s after PCA transform
+
 
 def add_intercept(X_pca):
     """
@@ -137,12 +148,21 @@ def add_intercept(X_pca):
     return tx
 
 
-
 # Cross-validation to select best pair (gamma, lambda) for logistic regression
 
+
 def cv_logreg(
-    X, y_pm1, gamma_list, lambda_list=(1e-3,), K=5, k=90, seed=0, standardize=True,
-    use_regularization=False, max_iters=2000, verbose=False
+    X,
+    y_pm1,
+    gamma_list,
+    lambda_list=(1e-3,),
+    K=5,
+    k=90,
+    seed=0,
+    standardize=True,
+    use_regularization=False,
+    max_iters=2000,
+    verbose=False,
 ):
     """
     Args:
@@ -155,7 +175,7 @@ def cv_logreg(
         use_regularization: whether to use regularized logistic regression
         max_iters: max iterations for logistic regression training
 
-    Returns: 
+    Returns:
         best_gamma: float, best learning rate
         best_lambda: float, best regularization (0.0 if no regularization)
         cv_loss: dict mapping (gamma, lambda) tuples to mean validation loss
@@ -163,16 +183,16 @@ def cv_logreg(
     """
 
     # Remap original labels from ±1 to 0/1
-    y = (y_pm1 + 1) / 2.0  
+    y = (y_pm1 + 1) / 2.0
 
     # Setup
     N = X.shape[0]
     cv_loss = {}
     best_score = np.inf
-    best_gamma, best_lambda = None, None 
+    best_gamma, best_lambda = None, None
 
     # Input lambda_grid, execpt if no regulariztaiton
-    lambda_grid = (lambda_list if use_regularization else (0.0,))
+    lambda_grid = lambda_list if use_regularization else (0.0,)
 
     # Prepare K-fold splits once
     folds = list(kfold_indices(N, K=K, shuffle=True, seed=seed))
@@ -181,7 +201,9 @@ def cv_logreg(
     for gamma in gamma_list:
         for lam in lambda_grid:
             if verbose:
-                print(f"\n[cv_logreg] Starting evaluation for gamma={gamma}, lambda={lam}")
+                print(
+                    f"\n[cv_logreg] Starting evaluation for gamma={gamma}, lambda={lam}"
+                )
             hp_start = time.time()
             fold_losses = []
 
@@ -198,8 +220,8 @@ def cv_logreg(
                 else:
                     X_tr_std, X_val_std = X_tr, X_val
 
-                # PCA fit on this K-TRAIN only (to avoid leakage), then transform both 
-                n_train, D = X_tr.shape                 # First check k does not exceed feasible values
+                # PCA fit on this K-TRAIN only (to avoid leakage), then transform both
+                n_train, D = X_tr.shape  # First check k does not exceed feasible values
                 if k > min(D, n_train):
                     raise ValueError(f"k={k} exceeds min(D={D}, n_train={n_train}).")
 
@@ -211,27 +233,33 @@ def cv_logreg(
                 pca_fit_elapsed = time.time() - pca_fit_start
 
                 transform_start = time.time()
-                Z_tr = pca_transform(X_tr_std, pca)     # PCA-transformed training data
-                Z_val = pca_transform(X_val_std, pca)   # PCA-transformed validation data
+                Z_tr = pca_transform(X_tr_std, pca)  # PCA-transformed training data
+                Z_val = pca_transform(X_val_std, pca)  # PCA-transformed validation data
                 transform_elapsed = time.time() - transform_start
 
                 if verbose:
-                    print(f"    [fold {fold_i}/{K}] PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s, Z_tr={Z_tr.shape}, Z_val={Z_val.shape}")
+                    print(
+                        f"    [fold {fold_i}/{K}] PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s, Z_tr={Z_tr.shape}, Z_val={Z_val.shape}"
+                    )
 
                 # Build design matrices (add intercept)
                 tx_tr = add_intercept(Z_tr)
                 tx_val = add_intercept(Z_val)
 
-                # Train with your functions 
-                initial_w = np.zeros(tx_tr.shape[1]) # initial weights to do logistic regression
+                # Train with your functions
+                initial_w = np.zeros(
+                    tx_tr.shape[1]
+                )  # initial weights to do logistic regression
                 if use_regularization:
-                    w, _ = reg_logistic_regression(y_tr, tx_tr, lam, initial_w, max_iters, gamma)  
+                    w, _ = reg_logistic_regression(
+                        y_tr, tx_tr, lam, initial_w, max_iters, gamma
+                    )
                 else:
-                    w, _ = logistic_regression(y_tr, tx_tr, initial_w, max_iters, gamma)          
+                    w, _ = logistic_regression(y_tr, tx_tr, initial_w, max_iters, gamma)
 
                 # Validation loss with NLL_loss
-                val_loss = NLL_loss(y_val, tx_val, w)  # no reg term in score 
-                
+                val_loss = NLL_loss(y_val, tx_val, w)  # no reg term in score
+
                 # Safety check: handle NaN or inf losses
                 if not np.isfinite(val_loss):
                     val_loss = np.inf
@@ -243,7 +271,9 @@ def cv_logreg(
             mean_loss = float(np.mean(fold_losses))
             hp_elapsed = time.time() - hp_start
             if verbose:
-                print(f" => mean validation loss for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)")
+                print(
+                    f" => mean validation loss for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)"
+                )
             cv_loss[(gamma, lam)] = mean_loss
 
             if mean_loss < best_score:
@@ -251,18 +281,26 @@ def cv_logreg(
                 best_gamma, best_lambda = gamma, lam
 
     if verbose:
-        print(f"\n[cv_logreg] Best params found: gamma={best_gamma}, lambda={best_lambda} with mean val loss={best_score:.6f}")
+        print(
+            f"\n[cv_logreg] Best params found: gamma={best_gamma}, lambda={best_lambda} with mean val loss={best_score:.6f}"
+        )
 
     return best_gamma, (best_lambda if use_regularization else None), cv_loss
 
 
-
 ### Train final logistic regression model with chosen k (and lambda if regularized)
 
+
 def train_final_logreg_model(
-    X_train, y_train_pm1, k,
-    use_regularization=False, lambda_=1e-3,
-    max_iters=2000, gamma=0.1, standardize=True, verbose=False
+    X_train,
+    y_train_pm1,
+    k,
+    use_regularization=False,
+    lambda_=1e-3,
+    max_iters=2000,
+    gamma=0.1,
+    standardize=True,
+    verbose=False,
 ):
     """
     Fit final logistic regression model with chosen k principal components.
@@ -291,14 +329,18 @@ def train_final_logreg_model(
 
     # Optional verbose start
     if verbose:
-        print(f"[train_final_logreg_model] Starting training: k={k}, use_regularization={use_regularization}, lambda_={lambda_}, max_iters={max_iters}, gamma={gamma}, standardize={standardize}")
+        print(
+            f"[train_final_logreg_model] Starting training: k={k}, use_regularization={use_regularization}, lambda_={lambda_}, max_iters={max_iters}, gamma={gamma}, standardize={standardize}"
+        )
 
     # Fit on training set
     if standardize:
         m_s, s_s = standardize_fit(X_train)
         Xtr_std = standardize_transform(X_train, m_s, s_s)
         if verbose:
-            print(f"  [preprocess] Standardized X_train: mean shape={m_s.shape}, std shape={s_s.shape}")
+            print(
+                f"  [preprocess] Standardized X_train: mean shape={m_s.shape}, std shape={s_s.shape}"
+            )
     else:
         m_s, s_s = None, None
         Xtr_std = X_train
@@ -310,8 +352,14 @@ def train_final_logreg_model(
     Ztr = pca_transform(Xtr_std, pca)
     if verbose:
         evr = pca.get("explained_variance_ratio")
-        evr_sum = float(evr.sum()) if evr is not None else float(np.sum(pca.get("explained_variance", np.array([]))))
-        print(f"  [PCA] Fitted PCA with k={k}, transformed shape={Ztr.shape}, explained variance ratio sum (first k)={evr_sum:.6f}")
+        evr_sum = (
+            float(evr.sum())
+            if evr is not None
+            else float(np.sum(pca.get("explained_variance", np.array([]))))
+        )
+        print(
+            f"  [PCA] Fitted PCA with k={k}, transformed shape={Ztr.shape}, explained variance ratio sum (first k)={evr_sum:.6f}"
+        )
 
     # Add intercept of column of 1s
     tx_tr = add_intercept(Ztr)
@@ -319,13 +367,17 @@ def train_final_logreg_model(
     # Convert labels from {-1,1} → {0,1}
     y_tr = (y_train_pm1 + 1) / 2.0
 
-    # Train logistic regression 
+    # Train logistic regression
     initial_w = np.zeros(tx_tr.shape[1])
     if verbose:
-        print(f"  [train] Starting logistic regression training on data with shape {tx_tr.shape}")
+        print(
+            f"  [train] Starting logistic regression training on data with shape {tx_tr.shape}"
+        )
     train_start = time.time()
     if use_regularization:
-        w, loss = reg_logistic_regression(y_tr, tx_tr, lambda_, initial_w, max_iters, gamma)
+        w, loss = reg_logistic_regression(
+            y_tr, tx_tr, lambda_, initial_w, max_iters, gamma
+        )
     else:
         w, loss = logistic_regression(y_tr, tx_tr, initial_w, max_iters, gamma)
     train_elapsed = time.time() - train_start
@@ -334,7 +386,9 @@ def train_final_logreg_model(
             loss_val = float(loss)
         except Exception:
             loss_val = None
-        print(f"  [train] Finished training in {train_elapsed:.2f}s; final loss={loss_val}")
+        print(
+            f"  [train] Finished training in {train_elapsed:.2f}s; final loss={loss_val}"
+        )
 
     # Return trained model and preprocessing info
     return {
@@ -352,8 +406,8 @@ def train_final_logreg_model(
     }
 
 
+### Classify test data using trained logistic regression model
 
-### Classify test data using trained logistic regression model 
 
 def classify_test_data(X_test, model):
     """
@@ -362,7 +416,7 @@ def classify_test_data(X_test, model):
     Args:
         X_test: test data matrix, shape (N, D)
         model: dict containing trained model and preprocessing info, i.e. output of train_final_logreg_model in log_reg_training.py
-    
+
     Returns:
         results: dict with keys
             "yhat_prob": predicted probabilities P(y=1|x) on test set, shape (N, )
@@ -385,8 +439,10 @@ def classify_test_data(X_test, model):
     tx_te = add_intercept(Zte)
 
     # Evaluate predictions
-    prob = sigmoid(tx_te @ w)                 # P(y=1 | x)
-    yhat01 = (prob >= 0.5).astype(int)      # predicted labels in {0, 1}, threshold 0.5 assumes balanced classes
+    prob = sigmoid(tx_te @ w)  # P(y=1 | x)
+    yhat01 = (prob >= 0.5).astype(
+        int
+    )  # predicted labels in {0, 1}, threshold 0.5 assumes balanced classes
     yhat_pm1 = 2 * yhat01 - 1
 
     return {
@@ -394,8 +450,17 @@ def classify_test_data(X_test, model):
         "yhat_label_pm1": yhat_pm1,
     }
 
+
 from preprocessing_subroutine import preprocess_data
-def compute_f1_on_train(model=None, model_path="final_logreg_model.pkl", x_train_final=None, y_train=None, verbose=True):
+
+
+def compute_f1_on_train(
+    model=None,
+    model_path="final_logreg_model.pkl",
+    x_train_final=None,
+    y_train=None,
+    verbose=True,
+):
     """
     Compute precision, recall and F1 score on the training set using the provided
     logistic regression model. The model can be passed directly (dict), or the
@@ -412,21 +477,24 @@ def compute_f1_on_train(model=None, model_path="final_logreg_model.pkl", x_train
 
     # Get preprocessed training data
     if x_train_final is None or y_train is None:
-        x_train_final, _x_test_final, y_train, _train_ids, _test_ids = preprocess_data(verbose=False)
+        x_train_final, _x_test_final, y_train, _train_ids, _test_ids = preprocess_data(
+            verbose=False
+        )
     # else: use provided x_train_final, y_train
     # Ensure y_train is a numpy array
     y_train = np.asarray(y_train).astype(int)
     # Sanity check
     if x_train_final.shape[0] != y_train.shape[0]:
-        raise ValueError(f"Number of samples in x_train_final ({x_train_final.shape[0]}) does not match number of labels in y_train ({y_train.shape[0]})")
-    
-    
+        raise ValueError(
+            f"Number of samples in x_train_final ({x_train_final.shape[0]}) does not match number of labels in y_train ({y_train.shape[0]})"
+        )
 
     # Get predictions on training data
     preds = classify_test_data(x_train_final, model)["yhat_label_pm1"]
 
     # Ensure arrays are numpy arrays
     import numpy as _np
+
     y_true = _np.asarray(y_train).astype(int)
     y_pred = _np.asarray(preds).astype(int)
 
@@ -437,10 +505,16 @@ def compute_f1_on_train(model=None, model_path="final_logreg_model.pkl", x_train
 
     precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+    f1 = (
+        (2 * precision * recall) / (precision + recall)
+        if (precision + recall) > 0
+        else 0.0
+    )
 
     if verbose:
-        print(f"Train precision={precision:.6f}, recall={recall:.6f}, f1={f1:.6f} (TP={tp}, FP={fp}, FN={fn})")
+        print(
+            f"Train precision={precision:.6f}, recall={recall:.6f}, f1={f1:.6f} (TP={tp}, FP={fp}, FN={fn})"
+        )
 
     return precision, recall, f1
 
