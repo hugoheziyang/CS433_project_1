@@ -4,13 +4,26 @@ import os
 from helpers import load_csv_data
 from preprocessing_functions import *
 
-def preprocess_data(verbose=False):
+def preprocess_data(verbose=True):
     if verbose:
         print("preprocess_data: start", flush=True)
     # Use a single NumPy .npz archive for caching (simpler and atomic).
     cache_dir = "data/dataset"
     cache_path = os.path.join(cache_dir, "cached_data.npz")
+    final_cache_path = os.path.join(cache_dir, "cached_final_data.npz")
+    # If a preprocessed final cache exists, load and return it immediately.
+    if os.path.exists(final_cache_path):
+        with np.load(final_cache_path) as data:
+            x_train_final = data["x_train_final"]
+            x_test_final = data["x_test_final"]
+            y_train = data["y_train"]
+            train_ids = data["train_ids"]
+            test_ids = data["test_ids"]
+        if verbose:
+            print(f"preprocess_data: loaded final cached data from {final_cache_path}", flush=True)
+        return x_train_final, x_test_final, y_train, train_ids, test_ids
 
+    # Otherwise proceed to load raw cached data or CSV and build final cache below.
     if os.path.exists(cache_path):
         # Load data from cached .npz archive
         with np.load(cache_path) as data:
@@ -20,7 +33,7 @@ def preprocess_data(verbose=False):
             train_ids = data["train_ids"]
             test_ids = data["test_ids"]
         if verbose:
-            print(f"preprocess_data: loaded cached data from {cache_path}", flush=True)
+            print(f"preprocess_data: loaded cached raw data from {cache_path}", flush=True)
     else:
         x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data/dataset", sub_sample=False)
 
@@ -29,7 +42,7 @@ def preprocess_data(verbose=False):
         np.savez(cache_path, x_train=x_train, x_test=x_test, y_train=y_train,
                  train_ids=train_ids, test_ids=test_ids)
         if verbose:
-            print(f"preprocess_data: loaded data from CSV and saved cache to {cache_path}", flush=True)
+            print(f"preprocess_data: loaded data from CSV and saved raw cache to {cache_path}", flush=True)
     # NOTE: many helper functions (replace_weird_values, specific replacement maps,
     # and the index-based exceptions) assume original column indexing. To keep
     # indices consistent we must run replacements on the original full dataset
@@ -101,6 +114,22 @@ def preprocess_data(verbose=False):
         print(f"preprocess_data: recombined final arrays -> train {x_train_final.shape}, test {x_test_final.shape}", flush=True)
     if verbose:
         print(f"preprocess_data: finished (total NaNs in train final: {np.isnan(x_train_final).sum()}, test final: {np.isnan(x_test_final).sum()})", flush=True)
+
+    # Save the final preprocessed arrays to a final cache for next time.
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+        np.savez(final_cache_path,
+                 x_train_final=x_train_final,
+                 x_test_final=x_test_final,
+                 y_train=y_train,
+                 train_ids=train_ids,
+                 test_ids=test_ids)
+        if verbose:
+            print(f"preprocess_data: saved final cached data to {final_cache_path}", flush=True)
+    except Exception as e:
+        # Non-fatal: continue without stopping if saving cache fails.
+        if verbose:
+            print(f"preprocess_data: warning saving final cache failed: {e}", flush=True)
 
     return x_train_final, x_test_final, y_train, train_ids, test_ids
 
