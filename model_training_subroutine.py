@@ -21,9 +21,9 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
     #               (i) Fit PCA on the training fold only.
     #               (ii) Transform both training and validation data.
     #               (iii) Train logistic regression on training fold.
-    #               (iv) Evaluate negative log likelihood (NLL) loss on validation fold.
-    # 3. Average the validation losses over folds for each (gamma, lambda) pair.
-    # 4. Pick the optimal pair (gamma, lambda) which minimises the average validation loss.
+    #               (iv) Evaluate F1 score on validation fold.
+    # 3. Average the F1 scores over folds for each (gamma, lambda) pair.
+    # 4. Pick the optimal pair (gamma, lambda) which maximises the F1 score.
     # 5. Retrain on full preprocessed training set x_train_final using the chosen value of k and cache the model to .h5 file
     
     # Variables subject to modification
@@ -49,7 +49,7 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
         print(f"model_training: starting cross-validation with k={k}, gamma_list={gamma_list}, lambda_list={lambda_list}", flush=True)
 
     # Cross-validation for (and gamma, lambda)
-    best_gamma, best_lambda, cv_loss = cv_logreg(
+    best_gamma, best_lambda, cv_f1 = cv_logreg(
         X=x_train_final,
         y_pm1=y_train,
         gamma_list=gamma_list,

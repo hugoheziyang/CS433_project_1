@@ -178,7 +178,7 @@ def cv_logreg(
     Returns:
         best_gamma: float, best learning rate
         best_lambda: float, best regularization (0.0 if no regularization)
-        cv_loss: dict mapping (gamma, lambda) tuples to mean validation loss
+        cv_f1: dict mapping (gamma, lambda) tuples to mean f1 score across folds
         When `verbose=True` the function prints progress information to stdout.
     """
 
@@ -187,7 +187,7 @@ def cv_logreg(
 
     # Setup
     N = X.shape[0]
-    cv_loss = {}
+    cv_f1 = {}
     # We'll maximize mean F1 score across folds, so initialize to -inf
     best_score = -np.inf
     best_gamma, best_lambda = None, None
@@ -294,8 +294,8 @@ def cv_logreg(
                 print(
                     f" => mean validation F1 for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)"
                 )
-            # Store mean F1 in cv_loss dict (name kept for backward compatibility)
-            cv_loss[(gamma, lam)] = mean_loss
+            # Store mean F1 in cv_f1 dict (name kept for backward compatibility)
+            cv_f1[(gamma, lam)] = mean_loss
 
             # Higher F1 is better
             if mean_loss > best_score:
@@ -307,7 +307,7 @@ def cv_logreg(
             f"\n[cv_logreg] Best params found: gamma={best_gamma}, lambda={best_lambda} with mean val loss={best_score:.6f}"
         )
 
-    return best_gamma, (best_lambda if use_regularization else None), cv_loss
+    return best_gamma, (best_lambda if use_regularization else None), cv_f1
 
 
 ### Train final logistic regression model with chosen k (and lambda if regularized)

@@ -108,6 +108,8 @@ ENV/
 
 # Dataset
 data/dataset/
+*.pkl
+*.csv
 
 # Test file
 test.py

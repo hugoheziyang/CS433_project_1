@@ -48,7 +48,7 @@ This should produce a file named `submission.csv`, which can then be uploaded on
 ---
 
 ## Files description
-The objectives of the assignment is described in `project1_description.pdf`. We describe the files used in the execution of `run.py` below:
+The objectives of the assignment is described in `project1_description.pdf`. We describe the files used in the execution of `run.py` and/or the written report below:
 - `helpers.py` contains functions which load `x_train.csv`, `y_train.csv`, `x_test.csv` data into numpy arrays as well as create `.csv` submission file.
 - `implementations.py` contains functions required in **Step 2 - Implement ML Methods** of `project1_description.pdf` assignment as well as auxiliary functions needed.
 - `preprocessing_subroutine.py` contains the data preprocessing subroutine. 
@@ -61,3 +61,5 @@ The objectives of the assignment is described in `project1_description.pdf`. We 
 
 ## Cached data
 To simplify loading data from `.csv` files and converting them into numpy arrays each time we manipulate the training dataset, we load from `x_train.csv`, `y_train.csv`, `x_test.csv` once, and store the numpy arrays in `./data/dataset/cached_data.npz`. This is done the first time `preprocess_data` in `preprocessing_subroutine.py` is executed, and upon future calls of `preprocess_data`, automatically loads dataset from `./data/dataset/cached_data.npz`.
+
+The trained logistic regression model is stored in `final_logreg_model.pkl` upon running `model_training` subroutine in `model_training_subroutine.py`. This is done automatically upon executing `run.py`. 
