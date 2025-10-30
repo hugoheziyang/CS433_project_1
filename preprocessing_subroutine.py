@@ -8,8 +8,8 @@ def preprocess_data(verbose=False):
     if verbose:
         print("preprocess_data: start", flush=True)
     # Use a single NumPy .npz archive for caching (simpler and atomic).
-    cache_dir = "projects/project1/data/dataset"
-    cache_dir2 = "data/dataset"
+    cache_dir = "data/dataset"
+    cache_dir2 = "projects/project1/data/dataset"
     cache_path = os.path.join(cache_dir, "cached_data.npz")
     cache_path2 = os.path.join(cache_dir2, "cached_data.npz")
 

@@ -56,3 +56,8 @@ The objectives of the assignment is described in `project1_description.pdf`. We 
 - `model_training_subroutine.py` contains the subroutine used to train a given model. The model may either be regularised logistic regression, or ridge regression. 
 - `model_training_functions.py` contains the auxiliary functions to the model training subroutine in `model_training_subroutine.py`.
 - `plot_graphs.py` contains functions used to plot the graphs seen in the submitted written report.
+
+---
+
+## Cached data
+To simplify loading data from `.csv` files and converting them into numpy arrays each time we manipulate the training dataset, we load from `x_train.csv`, `y_train.csv`, `x_test.csv` once, and store the numpy arrays in `./data/dataset/cached_data.npz`. This is done the first time `preprocess_data` in `preprocessing_subroutine.py` is executed, and upon future calls of `preprocess_data`, automatically loads dataset from `./data/dataset/cached_data.npz`.
