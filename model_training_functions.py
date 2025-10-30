@@ -340,6 +340,7 @@ def train_final_logreg_model(
     return {
         "w": w,
         "pca_model": pca,
+        "loss": loss,
         "standardize_mean": m_s,
         "standardize_std": s_s,
         "k": k,

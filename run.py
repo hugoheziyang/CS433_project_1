@@ -23,6 +23,10 @@ else:
 # Get preprocessed test data (x_test_final) from preprocessing subroutine
 x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(verbose=True)
 
+# Print Loss on training data
+print(f"Training Loss: {model['loss']}")
+
+# Compute F1 score on training data
 compute_f1_on_train(model=model, x_train_final=x_train_final,  y_train=y_train, verbose=True)
 
 # Classify test data
