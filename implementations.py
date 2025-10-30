@@ -1,6 +1,7 @@
 import numpy as np
 
-### Main functions in Step 2 of pdf used in the project. 
+### Main functions in Step 2 of pdf used in the project.
+
 
 def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
     """The Gradient Descent (GD) algorithm.
@@ -24,6 +25,7 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
 
     return w, loss
 
+
 def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     """The Stochastic Gradient Descent algorithm (SGD).
 
@@ -41,7 +43,7 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     """
     w = initial_w
     for n_iter in range(max_iters):
-        index = np.random.choice(y.shape[0], 1, replace=False) # batch_size=1
+        index = np.random.choice(y.shape[0], 1, replace=False)  # batch_size=1
         y_B = y[index]
         tx_B = tx[index, :]
         stoch_grad = mean_squared_error_sg(y_B, tx_B, w)
@@ -49,6 +51,7 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     loss = mean_squared_error_loss(y, tx, w)
 
     return w, loss
+
 
 def least_squares(y, tx):
     """Calculate the least squares solution.
@@ -69,8 +72,9 @@ def least_squares(y, tx):
 
     e = y - tx.dot(w)
     loss = 0.5 * np.mean(e**2)
-    
+
     return w, loss
+
 
 def ridge_regression(y, tx, lambda_):
     """implement ridge regression.
@@ -90,11 +94,12 @@ def ridge_regression(y, tx, lambda_):
     a = tx.T.dot(tx) + 2 * N * lambda_ * np.eye(D)
     b = tx.T.dot(y)
     w = np.linalg.solve(a, b)
-    
+
     e = y - tx.dot(w)
     loss = 0.5 * np.mean(e**2)
 
     return w, loss
+
 
 def logistic_regression(y, tx, initial_w, max_iters, gamma):
     """The Gradient Descent (GD) algorithm for logistic regression.
@@ -117,6 +122,7 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
     loss = NLL_loss(y, tx, w)
 
     return w, loss
+
 
 def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     """The Gradient Descent (GD) algorithm for regularised logistic regression.
@@ -141,8 +147,8 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     return w, loss
 
 
-
 ### Auxiliary functions used in the main functions above.
+
 
 def mean_squared_error_loss(y, tx, w):
     """Calculate the loss using either MSE or MAE.
@@ -156,8 +162,9 @@ def mean_squared_error_loss(y, tx, w):
         loss: the value of the loss (a scalar), corresponding to the input parameters w.
     """
     e = y - tx.dot(w)
-    loss = 0.5 * np.mean(e ** 2)
+    loss = 0.5 * np.mean(e**2)
     return loss
+
 
 def mean_squared_error_g(y, tx, w):
     """Computes the gradient at w.
@@ -172,7 +179,8 @@ def mean_squared_error_g(y, tx, w):
     """
     N = len(y)
     e = y - tx.dot(w)
-    return (-1/N) * tx.T.dot(e)
+    return (-1 / N) * tx.T.dot(e)
+
 
 def mean_squared_error_sg(y, tx, w):
     """Compute a stochastic gradient at w from a data sample batch of size B, where B < N, and their corresponding labels.
@@ -187,7 +195,8 @@ def mean_squared_error_sg(y, tx, w):
     """
     B = len(y)
     e = y - tx.dot(w)
-    return (-1/B) * tx.T.dot(e)
+    return (-1 / B) * tx.T.dot(e)
+
 
 def sigmoid(t):
     """apply sigmoid function on t.
@@ -202,7 +211,7 @@ def sigmoid(t):
 
 
 def NLL_loss(y, tx, w):
-    """compute the cost by negative log likelihood for y in {0, 1}. 
+    """compute the cost by negative log likelihood for y in {0, 1}.
 
     Args:
         y:  shape=(N, )
@@ -216,9 +225,10 @@ def NLL_loss(y, tx, w):
     assert y.shape[0] == tx.shape[0]
     assert tx.shape[1] == w.shape[0]
 
-    z = tx @ w               
+    z = tx @ w
     loss = np.mean(np.logaddexp(0, z) - y * z)
-    return float(loss)
+    return np.asarray(loss).reshape(())
+
 
 def NLL_g(y, tx, w):
     """compute the gradient of negative log likelihood loss for y in {0, 1}.
@@ -233,6 +243,4 @@ def NLL_g(y, tx, w):
     """
     N = y.shape[0]
 
-    return 1/N * tx.T @ (sigmoid(tx @ w) - y)
-
-
+    return 1 / N * tx.T @ (sigmoid(tx @ w) - y)

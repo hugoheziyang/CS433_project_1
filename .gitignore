@@ -108,3 +108,6 @@ ENV/
 
 # Dataset
 data/dataset/
+
+# Test file
+test.py
