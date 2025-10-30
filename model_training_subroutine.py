@@ -1,13 +1,13 @@
 # --- Complete model training on train data: preprocess data, cross-validation, standardization, PCA transformation, 
 # hyperparameter count determination, train logistic regression model ---
-import h5py
 import numpy as np
+import pickle
 from preprocessing_subroutine import preprocess_data
 from model_training_functions import *
 
 def model_training():
     ### Step 1: Preprocess data
-    x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data()
+    x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(verbose=True)
 
     ### Step 2: Train final model by following the procedure:
     # 1. Split data into K folds to prepare for cross validation
@@ -60,11 +60,16 @@ def model_training():
         gamma=best_gamma,
         standardize=standardize)
     
-    # Save model to .h5 file
-    with h5py.File("final_logreg_model.h5", "w") as f:
-        for key, value in model.items():
-            f.create_dataset(key, data=value)
-    
+    # Save model using Python's pickle (standard library). This stores nested
+    # dictionaries and arbitrary Python objects without wrapping them in 0-d
+    # object arrays (unlike np.savez). The file will be named final_logreg_model.pkl.
+    with open("final_logreg_model.pkl", "wb") as fh:
+        pickle.dump(model, fh)
+
     # To load the model back, use:
-    # with h5py.File("final_logreg_model.h5", "r") as f:
-    #     loaded_model = {key: f[key][()] for key in f.keys()}
+    # import pickle
+    # with open("final_logreg_model.pkl", "rb") as fh:
+    #     loaded_model = pickle.load(fh)
+
+if __name__ == "__main__":
+    model_training()

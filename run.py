@@ -1,27 +1,27 @@
-import h5py
-import numpy as np
+import pickle
 import os
 from helpers import create_csv_submission
 from preprocessing_subroutine import preprocess_data
 from model_training_subroutine import model_training
 from model_training_functions import classify_test_data
 
-# Check if the model file exists
-if os.path.exists("final_logreg_model.h5"):
-    # Load the trained model
-    with h5py.File("final_logreg_model.h5", "r") as f:
-        model = {key: f[key][()] for key in f.keys()}
+MODEL_PATH = "final_logreg_model.pkl"
 
+# Check if the model file exists
+if os.path.exists(MODEL_PATH):
+    # Load the trained model using pickle
+    with open(MODEL_PATH, "rb") as fh:
+        model = pickle.load(fh)
 else:
-    # Train the model
+    # Train the model (saves to MODEL_PATH)
     model_training()
-    
+
     # Load the trained model
-    with h5py.File("final_logreg_model.h5", "r") as f:
-        model = {key: f[key][()] for key in f.keys()}
+    with open(MODEL_PATH, "rb") as fh:
+        model = pickle.load(fh)
 
 # Get preprocessed test data (x_test_final) from preprocessing subroutine
-x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data()
+x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(verbose=True)
 
 # Classify test data
 y_test = classify_test_data(x_test_final, model)["yhat_label_pm1"]
