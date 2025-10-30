@@ -9,9 +9,7 @@ def preprocess_data(verbose=False):
         print("preprocess_data: start", flush=True)
     # Use a single NumPy .npz archive for caching (simpler and atomic).
     cache_dir = "data/dataset"
-    cache_dir2 = "projects/project1/data/dataset"
     cache_path = os.path.join(cache_dir, "cached_data.npz")
-    cache_path2 = os.path.join(cache_dir2, "cached_data.npz")
 
     if os.path.exists(cache_path):
         # Load data from cached .npz archive
@@ -23,16 +21,6 @@ def preprocess_data(verbose=False):
             test_ids = data["test_ids"]
         if verbose:
             print(f"preprocess_data: loaded cached data from {cache_path}", flush=True)
-    elif os.path.exists(cache_path2):
-        # Load data from cached .npz archive
-        with np.load(cache_path2) as data:
-            x_train = data["x_train"]
-            x_test = data["x_test"]
-            y_train = data["y_train"]
-            train_ids = data["train_ids"]
-            test_ids = data["test_ids"]
-        if verbose:
-            print(f"preprocess_data: loaded cached data from {cache_path2}", flush=True)
     else:
         x_train, x_test, y_train, train_ids, test_ids = load_csv_data("data/dataset", sub_sample=False)
 

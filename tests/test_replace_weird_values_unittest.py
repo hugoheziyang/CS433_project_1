@@ -13,7 +13,7 @@ def _load_module(path):
 class ReplaceWeirdValuesUnitTest(unittest.TestCase):
     def setUp(self):
         from pathlib import Path
-        # tests/ sits inside the project1/ folder; the module file lives one level up
+        # tests/ sits inside the root folder; the module file lives one level up
         mod_path = Path(__file__).parent.parent / "preprocessing_functions.py"
         mod = _load_module(str(mod_path))
         self.replace_weird_values = mod.replace_weird_values
