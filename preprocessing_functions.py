@@ -1,8 +1,306 @@
 import numpy as np
 
+def suppress_features(X):
+    """
+    Suppress unwanted features from dataset X.
+
+    Inputs
+    ---------
+    X : (N x P) dataset with P features after NaN filtering
+
+    Outputs
+    ---------
+    X_suppressed : (N x Q) dataset with Q < P features after suppression
+    feature_mask : (1 x P) boolean mask of kept features (True = kept, False = suppressed)
+    """
+
+    # Features to suppress (by original index before any filtering)
+    suppressed_features = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 
+                           19, 20, 21, 22, 23, 25, 26, 54, 55, 56, 57, 60, 62, 106, 131, 
+                           217, 218, 220, 221, 222, 223, 228, 229, 230, 248, 250, 251, 255]
+
+
+    P = X.shape[1]
+    feature_mask = np.ones(P, dtype=bool)
+    feature_mask[suppressed_features] = False
+
+    X_suppressed = X[:, feature_mask]
+
+    return X_suppressed, feature_mask
+
+def replace_weird_values(X):
+    """
+    Replace specific 'weird' values in dataset X with NaNs.
+    
+    Inputs
+    ---------
+    X : (N x P) dataset
+
+    Outputs
+    ---------
+    X : (N x P) dataset with weird values replaced by NaNs
+    """
+    # General rules described in the file comments:
+    #  - values in nan_values  -> replace by np.nan
+    #  - values in zero_values -> replace by 0
+    nan_values = {7, 77, 777, 7777, 77777, 777777, 9, 99, 999, 9999, 99999, 999999}
+    zero_values = {8, 88, 888, 8888}
+
+    # Features (columns) where we DO NOT apply the general replacements at all
+    no_replace_all = {0, 1, 248, 251, 252, 265, 267, 268, 269, 270, 271, 272,
+                      277, 278, 292, 293, 294, 295, 296, 297, 298, 300,
+                      301, 302, 303, 304, 305}
+
+    # Partial exceptions: feature -> set(values to NOT replace)
+    partial_no_replace = {}
+    partial_no_replace.update({63: {77, 88, 99, 777, 888, 999}, 263: {77, 88, 99, 777, 888, 999}})
+    for idx in [151, 152, 286, 287]:
+        partial_no_replace.setdefault(idx, set()).update({7, 8, 9, 77, 88, 99})
+    for idx in [196, 198]:
+        partial_no_replace.setdefault(idx, set()).update({7, 8, 9, 77, 88})
+    partial_no_replace[50] = {7, 8, 9, 88}
+    for idx in [253, 254]:
+        partial_no_replace.setdefault(idx, set()).update({777, 888, 999})
+    # features where we don't replace small set {7,8,9}
+    for idx in [28, 29, 30, 76, 79, 80, 81, 89, 92, 99, 103, 107, 113, 114, 115,
+                120, 123, 124, 207, 208, 209, 210, 211, 212, 213, 214, 247, 25, 263]:
+        partial_no_replace.setdefault(idx, set()).update({7, 8, 9})
+    for idx in [147, 149, 150]:
+        partial_no_replace.setdefault(idx, set()).update({77, 88})
+    for idx in [91, 94]:
+        partial_no_replace.setdefault(idx, set()).update({888})
+    partial_no_replace.setdefault(148, set()).update({77})
+    for idx in [225, 226, 240, 241, 243]:
+        partial_no_replace.setdefault(idx, set()).update({7})
+
+    # Specific additional replacements (overrides / extra rules)
+    # mapping: feature_idx -> {old_value: replacement}
+    specific_replacements = {}
+    # Replace 555 by 0 for indexes [82..87]
+    for idx in [82, 83, 84, 85, 86, 87]:
+        specific_replacements.setdefault(idx, {})[555] = 0
+    # Replace 98 by 0 for indexes [196, 198]
+    for idx in [196, 198]:
+        specific_replacements.setdefault(idx, {})[98] = 0
+    # Replace 98 by NAN for indexes [89, 92, 147, 148, 149, 150]
+    for idx in [89, 92, 147, 148, 149, 150]:
+        specific_replacements.setdefault(idx, {})[98] = np.nan
+    # Replace 97 by NAN for indexes [196, 198]
+    for idx in [196, 198]:
+        specific_replacements.setdefault(idx, {})[97] = np.nan
+    # Replace 900 by NAN for index [263]
+    specific_replacements.setdefault(263, {})[900] = np.nan
+    # Replace 99900 by NAN for indexes [265, 288, 289]
+    for idx in [265, 288, 289]:
+        specific_replacements.setdefault(idx, {})[99900] = np.nan
+    # Replace 99000 by NAN for indexes [294, 295, 298]
+    for idx in [294, 295, 298]:
+        specific_replacements.setdefault(idx, {})[99000] = np.nan
+
+    # Now apply replacements column-wise
+    n_cols = X.shape[1]
+    for j in range(n_cols):
+        col = X[:, j]
+
+        # Apply specific replacements first (these are precise mappings)
+        if j in specific_replacements:
+            for old_val, new_val in specific_replacements[j].items():
+                # guard against NaN comparisons; np.equal handles numeric values fine
+                col = np.where(col == old_val, new_val, col)
+
+        # If this column is fully excluded from general replacements, skip
+        if j in no_replace_all:
+            X[:, j] = col
+            continue
+
+        # Determine values that should NOT be replaced for this column
+        not_replace = partial_no_replace.get(j, set())
+
+        # Compute allowed sets for this column (remove the not_replace members)
+        allowed_nan = sorted(list(nan_values - not_replace))
+        allowed_zero = sorted(list(zero_values - not_replace))
+
+        # Replace allowed nan-values with np.nan
+        if allowed_nan:
+            # use np.isin to handle vectorized membership tests
+            col = np.where(np.isin(col, allowed_nan), np.nan, col)
+
+        # Replace allowed zero-values with 0
+        if allowed_zero:
+            col = np.where(np.isin(col, allowed_zero), 0, col)
+
+        X[:, j] = col
+
+    return X
+
+def one_hot_encode(column):
+    """
+    NumPy one-hot encoder that:
+      - takes a 1D array/list of categorical values
+      - infers the vocabulary
+      - returns (one_hot_matrix, vocabulary_list)
+    """
+    col = np.array(column)
+    vocab, inverse = np.unique(col, return_inverse=True)
+
+    one_hot = np.zeros((len(col), len(vocab)), dtype=int)
+    one_hot[np.arange(len(col)), inverse] = 1
+
+    # If vocab contains NaN (e.g. missing/unseen values), remove the corresponding
+    # column(s) from the one-hot encoding and filter vocab accordingly.
+    # This mirrors the fix applied in the notebook to avoid unreliable lookups involving NaN.
+    nan_cols = np.where(np.isnan(vocab))[0]
+
+    if nan_cols.size > 0:
+        one_hot = np.delete(one_hot, nan_cols, axis=1)
+        vocab = vocab[~np.isnan(vocab)]
+
+    return one_hot, vocab
+
+
+def one_hot_encode_columns(X, column_mask, return_vocabs=False):
+    """
+    One-hot encode multiple columns of a 2D dataset X.
+
+    Inputs
+    -----
+    X : np.ndarray, shape (N, P)
+        Dataset where columns specified in `column_mask` will be one-hot encoded.
+    column_mask : array-like of bool, shape (P,)
+        Boolean mask where True indicates the column should be one-hot encoded.
+    return_vocabs : bool
+        If True, return a list of vocab arrays for the encoded columns (in the same
+        order as np.where(column_mask)[0]). If False, return only X_new.
+
+    Returns
+    -------
+    X_new : np.ndarray, shape (N, P_new)
+        Dataset with selected columns replaced by their one-hot encodings. Columns
+        not in column_mask are kept in their original form (as one column each).
+    vocabs : list of np.ndarray (optional)
+        If return_vocabs is True, a list of vocabulary arrays for each encoded column
+        (order corresponds to the indices in np.where(column_mask)[0]).
+
+    Notes
+    -----
+    - For rows where the original column value was NaN, the corresponding one-hot
+      row will be all zeros (this mirrors `one_hot_encode` behavior).
+    - The function uses the existing `one_hot_encode` helper.
+    """
+    P = X.shape[1]
+    mask = np.asarray(column_mask, dtype=bool)
+    if mask.shape[0] != P:
+        raise ValueError("column_mask must have length equal to number of columns in X")
+
+    cols_to_encode = np.where(mask)[0]
+    cols_keep = [j for j in range(P) if j not in set(cols_to_encode)]
+
+    N = X.shape[0]
+    parts = []
+    vocabs = []
+
+    # Append kept columns in original order, but we'll interleave encoded columns
+    # in the original column order by iterating through all columns and expanding
+    # encoded ones as needed.
+    for j in range(P):
+        col = X[:, j]
+        if mask[j]:
+            one_hot_col, vocab = one_hot_encode(col)
+            parts.append(one_hot_col)
+            vocabs.append(vocab)
+        else:
+            # keep as a column vector (ensure 2D shape)
+            parts.append(col.reshape(N, 1))
+
+    if parts:
+        X_new = np.concatenate(parts, axis=1)
+    else:
+        X_new = X.copy()
+
+    if return_vocabs:
+        return X_new, vocabs
+    return X_new
+
+def encode_with_vocabs(X_cat, vocabs):
+    """
+    Vectorized encoding of categorical matrix X_cat using provided per-column vocabs.
+
+    This implementation avoids Python-level loops over rows by using
+    numpy.searchsorted on the sorted vocabs (vocabs produced by np.unique).
+    It iterates columns (vocabs) in Python but performs row mapping in
+    vectorized numpy operations which is much faster for large N.
+    """
+    N = X_cat.shape[0]
+    parts = []
+
+    for j, vocab in enumerate(vocabs):
+        col = np.asarray(X_cat[:, j])
+        vocab_arr = np.asarray(vocab)
+
+        if vocab_arr.size == 0:
+            parts.append(np.zeros((N, 0), dtype=int))
+            continue
+
+        # Mask NaNs for float dtypes; for object/str types, skip NaN check
+        if np.issubdtype(col.dtype, np.floating):
+            not_nan = ~np.isnan(col)
+        else:
+            not_nan = np.ones(col.shape, dtype=bool)
+
+        # searchsorted requires vocab to be sorted (np.unique guarantees this)
+        # For values not in vocab, we'll mark them as invalid.
+        # Convert col to the vocab dtype for comparison when possible
+        try:
+            col_cast = col.astype(vocab_arr.dtype, copy=False)
+        except Exception:
+            col_cast = col
+
+        inds = np.searchsorted(vocab_arr, col_cast, side="left")
+
+        valid = (inds < vocab_arr.size) & not_nan
+        # where inds point to an equal value
+        # need to guard equality check for types that can't be compared elementwise
+        try:
+            equal = valid & (vocab_arr[inds] == col_cast)
+        except Exception:
+            # fallback to slower equality-safe check
+            equal = np.zeros_like(valid, dtype=bool)
+            for ii in np.where(valid)[0]:
+                equal[ii] = (vocab_arr[inds[ii]] == col_cast[ii])
+
+        one_hot = np.zeros((N, vocab_arr.size), dtype=int)
+        if np.any(equal):
+            rows = np.nonzero(equal)[0]
+            cols = inds[rows]
+            one_hot[rows, cols] = 1
+
+        parts.append(one_hot)
+
+    if parts:
+        return np.concatenate(parts, axis=1)
+    return np.empty((N, 0), dtype=int)
+
+def features_with_vocabs_above_threshold(feature_mask, categorical_mask, train_vocabs):
+    # Map the per-column vocabs back to original dataset indices.
+    # `feature_mask` is a boolean mask over original features (True=kept).
+    # `categorical_mask` is a boolean mask over the kept features (True=categorical).
+    kept_indices = np.where(feature_mask)[0]
+    # Ensure categorical_mask is boolean numpy array
+    cat_mask = np.asarray(categorical_mask, dtype=bool)
+    orig_cat_indices = kept_indices[cat_mask]
+
+    # Find original indices where the train vocab size exceeds treshold
+    treshold = 2
+    large_vocab_info = [(int(orig_cat_indices[i]), len(v)) for i, v in enumerate(train_vocabs) if len(v) > treshold]
+    large_vocab_indices = [idx for idx, _ in large_vocab_info]
+    if large_vocab_indices:
+        print(f"preprocess_data: categorical features with vocab size>{treshold} (original indices -> vocab_size): {large_vocab_info}", flush=True)
+    else:
+        print("preprocess_data: no categorical feature has vocab size > {treshold}", flush=True)
+    
+    return large_vocab_info
 
 ### Separate data into continuous and categorical columns
-
 def is_categorical(M, feature_mask):
     """
     Function
@@ -45,12 +343,12 @@ def is_categorical(M, feature_mask):
     # These features can undergo mean/median imputation 
     # This list's details are commented below
 
-    continuous_idx = [27, 28, 29, 30, 34, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 
+    continuous_idx = [27, 28, 29, 30, 34, 38, 50, 53, 61, 63, 64, 74, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 
                       90, 91, 93, 94, 95, 9, 99, 100, 111, 112, 113, 114, 115, 116, 121, 122, 128, 129, 130, 132, 
                       138, 139, 140, 141, 144, 146, 148, 149, 150, 151, 152, 153, 154, 155, 163, 172, 174, 176, 179, 
-                      181, 184, 189, 193, 194, 196, 198, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 247, 253, 
-                      257, 258, 259, 260, 267, 268, 269, 270, 271, 272, 277, 278, 288, 289, 292, 293, 294, 295, 296, 
-                      297, 298, 300, 301, 302, 303, 304, 305, 306]   
+                      181, 184, 189, 193, 194, 196, 198, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 247, 249, 
+                      252, 253, 254, 257, 258, 259, 260, 263, 265, 267, 268, 269, 270, 271, 272, 273, 274, 277, 278, 288, 289, 
+                      292, 293, 294, 295, 296, 297, 298, 300, 301, 302, 303, 304, 305, 306]   
 
     #   IDX     Column  Name        Signification 
     #                                     
@@ -231,22 +529,34 @@ def is_categorical(M, feature_mask):
 
 ### Remove NaN-heavy features (and datapoints if required)
 
-def nan_feature_filter(X, cutoff_ratio=0.8):
+def nan_feature_filter(X, cutoff_ratio=0.8, prev_mask=None):
     """
     Removes features (columns) from X that have a proportion of NaN values greater than or equal to cutoff_ratio.
     Args:
         X (np.ndarray): Input dataset of shape (n_samples, n_features).
         cutoff_ratio (float): Threshold ratio for removing features (default 0.8).
+        prev_mask (np.ndarray or None): Boolean mask of kept features from previous step (length = original n_features). If None, assumes all True.
     Returns:
         np.ndarray: Dataset with features removed.
-        np.ndarray: Boolean mask of kept features (True = kept, False = removed).
+        np.ndarray: Boolean mask of kept features (True = kept, False = removed), length = original n_features.
     """
     nan_proportions = np.mean(np.isnan(X), axis=0)
     keep_mask = nan_proportions < cutoff_ratio
     X_new = X[:, keep_mask]
-    return X_new, keep_mask
 
-def nan_datapoint_filter(X, cutoff_ratio=0.8):
+    # Combine with previous mask if provided
+    if prev_mask is not None:
+        # prev_mask is length original_n_features, keep_mask is length current_n_features
+        # We need to update prev_mask to reflect the new removals
+        # The indices in prev_mask that are True correspond to columns in X
+        combined_mask = prev_mask.copy()
+        true_indices = np.where(prev_mask)[0]
+        combined_mask[true_indices] = keep_mask
+        return X_new, combined_mask
+    else:
+        return X_new, keep_mask
+
+def nan_datapoint_filter(X, cutoff_ratio=0.8, prev_mask=None):
     """
     Removes datapoints (rows) from X that have a proportion of NaN values greater than or equal to cutoff_ratio.
     Args:
@@ -259,7 +569,17 @@ def nan_datapoint_filter(X, cutoff_ratio=0.8):
     nan_proportions = np.mean(np.isnan(X), axis=1)
     keep_mask = nan_proportions < cutoff_ratio
     X_new = X[keep_mask, :]
-    return X_new, keep_mask
+    # Combine with previous mask if provided
+    if prev_mask is not None:
+        # prev_mask is length original_n_features, keep_mask is length current_n_features
+        # We need to update prev_mask to reflect the new removals
+        # The indices in prev_mask that are True correspond to columns in X
+        combined_mask = prev_mask.copy()
+        true_indices = np.where(prev_mask)[0]
+        combined_mask[true_indices] = keep_mask
+        return X_new, combined_mask
+    else:
+        return X_new, keep_mask
 
 
 ### Impute missing values in continuous and categorical data
