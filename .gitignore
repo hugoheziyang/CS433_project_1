@@ -111,5 +111,5 @@ data/dataset/
 *.pkl
 *.csv
 
-# Test file
-test.py
+# Test files
+test*.py

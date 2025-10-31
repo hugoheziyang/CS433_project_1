@@ -63,3 +63,9 @@ The objectives of the assignment is described in `project1_description.pdf`. We 
 To simplify loading data from `.csv` files and converting them into numpy arrays each time we manipulate the training dataset, we load from `x_train.csv`, `y_train.csv`, `x_test.csv` once, and store the numpy arrays in `./data/dataset/cached_data.npz`. This is done the first time `preprocess_data` in `preprocessing_subroutine.py` is executed, and upon future calls of `preprocess_data`, automatically loads dataset from `./data/dataset/cached_data.npz`.
 
 The trained logistic regression model is stored in `final_logreg_model.pkl` upon running `model_training` subroutine in `model_training_subroutine.py`. This is done automatically upon executing `run.py`. 
+
+---
+
+## Other repositories
+- `./tests` includes tests used to verify certain preprocessing functions
+- `./figures` includes the graphs used in the written report

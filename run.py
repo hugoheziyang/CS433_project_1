@@ -2,8 +2,8 @@ import pickle
 import os
 from helpers import create_csv_submission
 from preprocessing_subroutine import preprocess_data
-from model_training_subroutine import model_training
-from model_training_functions import classify_test_data, compute_f1_on_train
+from model_training_subroutine import model_training_logreg, model_training_linreg
+from model_training_functions import classify_test_data, classify_test_data_linreg, compute_f1_on_train
 
 MODEL_PATH = "final_logreg_model.pkl"
 
@@ -14,7 +14,7 @@ if os.path.exists(MODEL_PATH):
         model = pickle.load(fh)
 else:
     # Train the model (saves to MODEL_PATH)
-    model_training()
+    model_training_logreg()
 
     # Load the trained model
     with open(MODEL_PATH, "rb") as fh:
@@ -37,4 +37,4 @@ compute_f1_on_train(
 y_test = classify_test_data(x_test_final, model)["yhat_label_pm1"]
 
 # Save predictions to CSV file for submission
-create_csv_submission(test_ids, y_test, "submission.csv")
+create_csv_submission(test_ids, y_test, "logreg_submission.csv")

@@ -6,7 +6,7 @@ from preprocessing_subroutine import preprocess_data
 from model_training_functions import *
 import argparse
 
-def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
+def model_training_logreg(k=None, gamma_list=None, lambda_list=None, is_trained=True, verbose=True):
     ### Step 1: Preprocess data
     x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(
         verbose=True
@@ -26,43 +26,54 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
     # 4. Pick the optimal pair (gamma, lambda) which maximises the F1 score.
     # 5. Retrain on full preprocessed training set x_train_final using the chosen value of k and cache the model to .h5 file
     
-    # Variables subject to modification
-    if gamma_list is None:
-        # use log scale for gamma values
-        gamma_list = np.logspace(-3, -0.3, 5)  # candidate gamma (step-size) values for gradient descent
+    if not is_trained:
+        # Variables subject to modification
+        if gamma_list is None:
+            # use log scale for gamma values
+            gamma_list = np.logspace(-3, -0.3, 5)  # candidate gamma (step-size) values for gradient descent
+        
+        if lambda_list is None:
+            lambda_list = np.logspace(-3, -0.07, 8)  # candidate lambda (regularization strength) values for ridge regularization
     
-    if lambda_list is None:
-        lambda_list = np.logspace(-3, -0.07, 8)  # candidate lambda (regularization strength) values for ridge regularization
- 
-    if k is None:
-        k = 90  # PCA : fix k the number of selected principal components
+        if k is None:
+            k = 90  # PCA : fix k the number of selected principal components
+        
+        K = 5   # number of folds for cross-validation   
+        seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
     
-    K = 5   # number of folds for cross-validation   
-    seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
-  
-    standardize = True  # whether to standardize features before PCA
-    use_regularization = (
-        True  # whether to use ridge regularization in logistic regression
-    )
-    max_iters = 200  # maximum number of iterations for logistic regression training
+        standardize = True  # whether to standardize features before PCA
+        use_regularization = (
+            True  # whether to use ridge regularization in logistic regression
+        )
+        max_iters = 200  # maximum number of iterations for logistic regression training
 
-    if verbose:
-        print(f"model_training: starting cross-validation with k={k}, gamma_list={gamma_list}, lambda_list={lambda_list}", flush=True)
+        if verbose:
+            print(f"model_training: starting cross-validation with k={k}, gamma_list={gamma_list}, lambda_list={lambda_list}", flush=True)
 
-    # Cross-validation for (and gamma, lambda)
-    best_gamma, best_lambda, cv_f1 = cv_logreg(
-        X=x_train_final,
-        y_pm1=y_train,
-        gamma_list=gamma_list,
-        lambda_list=lambda_list,
-        K=K,
-        k=k,
-        seed=seed,
-        standardize=standardize,
-        use_regularization=use_regularization,
-        max_iters=max_iters,
-        verbose=True,
-    )
+        # Cross-validation for (gamma, lambda)
+        best_gamma, best_lambda, cv_f1 = cv_logreg(
+            X=x_train_final,
+            y_pm1=y_train,
+            gamma_list=gamma_list,
+            lambda_list=lambda_list,
+            K=K,
+            k=k,
+            seed=seed,
+            standardize=standardize,
+            use_regularization=use_regularization,
+            max_iters=max_iters,
+            verbose=True,
+        )
+    
+    else:
+        # If model is already trained, set best hyperparameters to known good values
+        best_gamma = 0.0223872113856834
+        best_lambda = 0.32465984
+        use_regularization = True
+        standardize = True
+        max_iters = 200
+        if k is None:
+            k = 90  # PCA : fix k the number of selected principal components
 
     # Train final model with best k (and lambda if regularized) and store it in the dictionary model with the following keys:
     #   "w": optimal weights, numpy array of shape(D,), D is the number of features after PCA + adding column of 1s.
@@ -93,7 +104,7 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
     # Save model using Python's pickle (standard library). This stores nested
     # dictionaries and arbitrary Python objects without wrapping them in 0-d
     # object arrays (unlike np.savez). The file will be named final_logreg_model.pkl.
-    with open(f"k={k}_lambda={lambda_list[0]}_logreg_model.pkl", "wb") as fh:
+    with open("final_logreg_model.pkl", "wb") as fh:
         pickle.dump(model, fh)
 
     # To load the model back, use:
@@ -103,6 +114,85 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
 
     return model
 
+def model_training_linreg(k=None, gamma_list=None, lambda_list=None, is_trained=True, verbose=True):
+    ### Step 1: Preprocess data
+    x_train_final, x_test_final, y_train, train_ids, test_ids = preprocess_data(
+        verbose=True
+    )
+    
+    if not is_trained:
+        # Variables subject to modification
+        if gamma_list is None:
+            # use log scale for gamma values
+            gamma_list = np.logspace(-3, -0.3, 5)  # candidate gamma (step-size) values for gradient descent
+        
+        if lambda_list is None:
+            lambda_list = np.logspace(-3, -0.07, 8)  # candidate lambda (regularization strength) values for ridge regularization
+    
+        if k is None:
+            k = 90  # PCA : fix k the number of selected principal components
+        
+        K = 5   # number of folds for cross-validation   
+        seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
+    
+        standardize = True  # whether to standardize features before PCA
+        use_regularization = (
+            True  # whether to use ridge regularization in logistic regression
+        )
+        max_iters = 200  # maximum number of iterations for logistic regression training
+
+        if verbose:
+            print(f"model_training: starting cross-validation with k={k}, gamma_list={gamma_list}, lambda_list={lambda_list}", flush=True)
+
+        # Cross-validation for lambda
+        best_lambda, cv_f1 = cv_linreg(
+            X=x_train_final,
+            y_pm1=y_train,
+            lambda_list=lambda_list,
+            K=K,
+            k=k,
+            seed=seed,
+            standardize=standardize,
+            use_regularization=use_regularization,
+            verbose=True,
+        )
+    
+    else:
+        # If model is already trained, set best hyperparameters to known good values
+        best_lambda = 0.001
+        use_regularization = True
+        standardize = True
+        max_iters = 200
+        if k is None:
+            k = 90  # PCA : fix k the number of selected principal components
+
+    if verbose:
+        print(f"model_training: training final model with k={k}, lambda={best_lambda}", flush=True)
+    
+    model = train_final_linreg_model(X_train=x_train_final,
+        y_train_pm1=y_train,
+        k=k,
+        use_regularization=use_regularization,
+        lambda_=best_lambda,
+        standardize=standardize,
+        verbose=True,
+    )
+
+    # Save model using Python's pickle (standard library). This stores nested
+    # dictionaries and arbitrary Python objects without wrapping them in 0-d
+    # object arrays (unlike np.savez). The file will be named final_linreg_model.pkl.
+    with open("final_linreg_model.pkl", "wb") as fh:
+        pickle.dump(model, fh)
+
+    # To load the model back, use:
+    # import pickle
+    # with open("final_logreg_model.pkl", "rb") as fh:
+    #     loaded_model = pickle.load(fh)
+
+    return model
+
+
+# Main function to allow command-line execution of logistic regression model training
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train logistic regression model with optional k and lambda from CLI.")
     parser.add_argument("--k", type=int, help="Number of PCA components to keep (overrides default).")
@@ -125,7 +215,7 @@ if __name__ == "__main__":
 
     gamma_list = args.gamma_list if args.gamma_list is not None else None
 
-    model = model_training(k=k, gamma_list=gamma_list, lambda_list=lambda_list)
+    model = model_training_logreg(k=k, gamma_list=gamma_list, lambda_list=lambda_list)
 
     # Print Loss on training data
     print(f"Training Loss: {model['loss']}")
