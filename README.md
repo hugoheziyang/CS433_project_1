@@ -55,7 +55,7 @@ The objectives of the assignment is described in `project1_description.pdf`. We 
 - `preprocessing_functions.py` contains auxiliary functions to the data preprocessing subroutine in `preprocessing_subroutine.py`.
 - `model_training_subroutine.py` contains the subroutine used to train a given model. The model may either be regularised logistic regression, or ridge regression. 
 - `model_training_functions.py` contains the auxiliary functions to the model training subroutine in `model_training_subroutine.py`.
-- `plot_graphs.py` contains functions used to plot the graphs seen in the submitted written report.
+- `plot_graphs.py` contains functions used to plot the graphs seen in the written report `project1_report.pdf`.
 
 ---
 
