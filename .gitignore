@@ -110,6 +110,7 @@ ENV/
 data/dataset/
 *.pkl
 *.csv
+*.npz
 
 # Test files
 test*.py
