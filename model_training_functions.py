@@ -8,6 +8,8 @@ from implementations import (
     logistic_regression,
     NLL_loss,
     sigmoid,
+    ridge_regression,
+    least_squares    
 )
 
 ### K-Fold Cross-Validation Indices Generator
@@ -171,6 +173,7 @@ def cv_logreg(
         gamma_list: of learning rates (step sizes) to try
         lambda_list: list of regularization strengths to try (if use_regularization is True)
         K: number of cross-validation folds
+        k: number of PCA components to use
         seed: random seed for shuffling in K-fold (for reproducibility)
         use_regularization: whether to use regularized logistic regression
         max_iters: max iterations for logistic regression training
@@ -280,18 +283,18 @@ def cv_logreg(
                 if verbose:
                     print(f"  [fold {fold_i}/{K}] val_f1 = {f1:.6f}, PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s")
 
-            mean_loss = float(np.mean(fold_scores))
+            mean_f1 = float(np.mean(fold_scores))
             hp_elapsed = time.time() - hp_start
             if verbose:
                 print(
-                    f" => mean validation F1 for (gamma={gamma}, lambda={lam}) = {mean_loss:.6f} (time: {hp_elapsed:.2f}s)"
+                    f" => mean validation F1 for (gamma={gamma}, lambda={lam}) = {mean_f1:.6f} (time: {hp_elapsed:.2f}s)"
                 )
             # Store mean F1 in cv_f1 dict (name kept for backward compatibility)
-            cv_f1[(gamma, lam)] = mean_loss
+            cv_f1[(gamma, lam)] = mean_f1
 
             # Higher F1 is better
-            if mean_loss > best_score:
-                best_score = mean_loss
+            if mean_f1 > best_score:
+                best_score = mean_f1
                 best_gamma, best_lambda = gamma, lam
 
     if verbose:
@@ -429,7 +432,7 @@ def classify_test_data(X_test, model):
 
     Args:
         X_test: test data matrix, shape (N, D)
-        model: dict containing trained model and preprocessing info, i.e. output of train_final_logreg_model in log_reg_training.py
+        model: dict containing trained model and preprocessing info, i.e. output of train_final_logreg_model
 
     Returns:
         results: dict with keys
@@ -465,6 +468,296 @@ def classify_test_data(X_test, model):
     }
 
 
+# Cross-validation to select best lambda for ridge linear regression
+
+def cv_linreg(
+    X,
+    y_pm1,
+    lambda_list=(1e-3,),
+    K=5,
+    k=90,
+    seed=0,
+    standardize=True,
+    use_regularization=False,
+    verbose=False,
+):
+    """
+    Args:
+        X: data matrix, shape (N, D)
+        y_pm1: labels in {-1, +1}, shape (N, )
+        lambda_list: list of regularization strengths to try (if use_regularization is True)
+        K: number of cross-validation folds
+        k: number of PCA components to use
+        seed: random seed for shuffling in K-fold (for reproducibility)
+        use_regularization: whether to use ridge linear regression
+
+    Returns:
+        best_lambda: float, best regularization (0.0 if no regularization)
+        cv_f1: dict mapping lambda to mean f1 score across folds
+        When `verbose=True` the function prints progress information to stdout.
+    """
+
+    # Remap original labels from ±1 to 0/1
+    y = (y_pm1 + 1) / 2.0
+
+    # Setup
+    N = X.shape[0]
+    cv_f1 = {}
+    # We'll maximize mean F1 score across folds, so initialize to -inf
+    best_score = -np.inf
+    best_lambda = None
+
+    # Input lambda_grid, execpt if no regulariztaiton
+    lambda_grid = lambda_list if use_regularization else (0.0,)
+
+    # Prepare K-fold splits once
+    folds = list(kfold_indices(N, K=K, shuffle=True, seed=seed))
+
+    # Grid search the hyperparameters over the K folds to optimize their value
+    for lam in lambda_grid:
+        if verbose:
+            print(
+                f"\n[cv_linreg] Starting evaluation for lambda={lam}"
+            )
+        hp_start = time.time()
+        # collect per-fold F1 scores (we'll maximize mean F1)
+        fold_scores = []
+
+        # Extract the fold samples
+        for fold_i, (tr_idx, val_idx) in enumerate(folds, start=1):
+            X_tr, X_val = X[tr_idx], X[val_idx]
+            y_tr, y_val = y[tr_idx], y[val_idx]
+
+            # Standardize on this K-fold's TRAIN set only, to avoid leakage
+            if standardize:
+                m, s = standardize_fit(X_tr)
+                X_tr_std = standardize_transform(X_tr, m, s)
+                X_val_std = standardize_transform(X_val, m, s)
+            else:
+                X_tr_std, X_val_std = X_tr, X_val
+
+            # PCA fit on this K-TRAIN only (to avoid leakage), then transform both
+            n_train, D = X_tr.shape  # First check k does not exceed feasible values
+            if k > min(D, n_train):
+                raise ValueError(f"k={k} exceeds min(D={D}, n_train={n_train}).")
+
+            pca_fit_start = time.time()
+            pca = pca_fit(X_tr_std, k=k)
+            pca_fit_elapsed = time.time() - pca_fit_start
+
+            transform_start = time.time()
+            Z_tr = pca_transform(X_tr_std, pca)  # PCA-transformed training data
+            Z_val = pca_transform(X_val_std, pca)  # PCA-transformed validation data
+            transform_elapsed = time.time() - transform_start
+
+            # Build design matrices (add intercept)
+            tx_tr = add_intercept(Z_tr)
+            tx_val = add_intercept(Z_val)
+
+            # Train with your functions
+            if use_regularization:
+                w, _ = ridge_regression(y_tr, tx_tr, lam)
+            else:
+                w, _ = least_squares(y_tr, tx_tr)
+
+            # Build model dict compatible with classify_test_data / compute_f1_on_train
+            # Note: pass the original (untransformed) X_val and corresponding y in {-1,+1}
+            model = {
+                "w": w,
+                "pca_model": pca,
+                "standardize_mean": (m if standardize else None),
+                "standardize_std": (s if standardize else None),
+                "k": k,
+                "use_regularization": use_regularization,
+                "lambda_": (lam if use_regularization else None),
+                "standardize": standardize,
+            }
+
+            # Compute F1 on this fold's validation set using existing helper
+            # y_pm1 is available in outer scope (original labels in {-1,+1})
+            _, _, f1 = compute_f1_on_train(
+                model=model, x_train_final=X_val, y_train=y_pm1[val_idx], is_logreg=False, verbose=False
+            )
+
+            # Safety: ensure numeric
+            if not np.isfinite(f1):
+                f1 = 0.0
+
+            fold_scores.append(f1)
+            if verbose:
+                print(f"  [fold {fold_i}/{K}] val_f1 = {f1:.6f}, PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s")
+
+        mean_f1 = float(np.mean(fold_scores))
+        hp_elapsed = time.time() - hp_start
+        if verbose:
+            print(
+                f" => mean validation F1 for (lambda={lam}) = {mean_f1:.6f} (time: {hp_elapsed:.2f}s)"
+            )
+        # Store mean F1 in cv_f1 dict (name kept for backward compatibility)
+        cv_f1[lam] = mean_f1
+
+        # Higher F1 is better
+        if mean_f1 > best_score:
+            best_score = mean_f1
+            best_lambda = lam
+
+    if verbose:
+        print(
+            f"\n[cv_linreg] Best params found: lambda={best_lambda} with mean f1={best_score:.6f}"
+        )
+
+    return (best_lambda if use_regularization else None), cv_f1
+
+
+### Train final linear regression model with chosen k (and lambda if regularized)
+
+
+def train_final_linreg_model(
+    X_train,
+    y_train_pm1,
+    k,
+    use_regularization=False,
+    lambda_=1e-3,
+    standardize=True,
+    verbose=False,
+):
+    """
+    Fit final linear regression model with chosen k principal components.
+    Args:
+        X_train: training data matrix, shape (N, D)
+        y_train_pm1: training labels in {-1, +1}, shape (N, )
+        k: number of PCA components to use
+        use_regularization: whether to use ridge linear regression
+        lambda_: regularization strength (if use_regularization is True)
+        standardize: whether to standardize features before PCA
+    Returns:
+        model: dict containing trained model and preprocessing info; see below for keys
+            "w": optimal weights, numpy array of shape(D,), D is the number of features after PCA + intercept.
+            "pca_model": dict returned by pca_fit on training data
+            "standardize_mean": mean used for standardization (None if standardize is False)
+            "standardize_std": std used for standardization (None if standardize is False)
+            "k": number of PCA components used
+            "use_regularization": whether regularization was used
+            "lambda_": regularization strength used (None if use_regularization is False)
+            "standardize": whether standardization was used
+    """
+
+    # Optional verbose start
+    if verbose:
+        print(
+            f"[train_final_linreg_model] Starting training: k={k}, use_regularization={use_regularization}, lambda_={lambda_}, standardize={standardize}"
+        )
+
+    # Fit on training set
+    if standardize:
+        m_s, s_s = standardize_fit(X_train)
+        Xtr_std = standardize_transform(X_train, m_s, s_s)
+        if verbose:
+            print(
+                f"  [preprocess] Standardized X_train: mean shape={m_s.shape}, std shape={s_s.shape}"
+            )
+    else:
+        m_s, s_s = None, None
+        Xtr_std = X_train
+        if verbose:
+            print("  [preprocess] Skipping standardization")
+
+    # Fit PCA on standardized training data
+    pca = pca_fit(Xtr_std, k)
+    Ztr = pca_transform(Xtr_std, pca)
+    if verbose:
+        evr = pca.get("explained_variance_ratio")
+        evr_sum = (
+            float(evr.sum())
+            if evr is not None
+            else float(np.sum(pca.get("explained_variance", np.array([]))))
+        )
+        print(
+            f"  [PCA] Fitted PCA with k={k}, transformed shape={Ztr.shape}, explained variance ratio sum (first k)={evr_sum:.6f}"
+        )
+
+    # Add intercept of column of 1s
+    tx_tr = add_intercept(Ztr)
+
+    # Convert labels from {-1,1} → {0,1}
+    y_tr = (y_train_pm1 + 1) / 2.0
+
+    # Train linear regression
+    if verbose:
+        print(
+            f"  [train] Starting linear regression training on data with shape {tx_tr.shape}"
+        )
+    train_start = time.time()
+    if use_regularization:
+        w, loss = ridge_regression(y_tr, tx_tr, lambda_)
+    else:
+        w, loss = least_squares(y_tr, tx_tr)
+    train_elapsed = time.time() - train_start
+    if verbose:
+        try:
+            loss_val = float(loss)
+        except Exception:
+            loss_val = None
+        print(
+            f"  [train] Finished training in {train_elapsed:.2f}s; final loss={loss_val}"
+        )
+
+    # Return trained model and preprocessing info
+    return {
+        "w": w,
+        "pca_model": pca,
+        "loss": loss,
+        "standardize_mean": m_s,
+        "standardize_std": s_s,
+        "k": k,
+        "use_regularization": use_regularization,
+        "lambda_": lambda_,
+        "standardize": standardize,
+    }
+
+
+### Classify test data using trained linear regression model
+
+
+def classify_test_data_linreg(X_test, model):
+    """
+    Apply a trained linear regression model (with PCA + standardization) to test data.
+
+    Args:
+        X_test: test data matrix, shape (N, D)
+        model: dict containing trained model and preprocessing info, i.e. output of train_final_linreg_model
+
+    Returns:
+        results: dict with key
+            "yhat_label_pm1": predicted labels in {-1, +1} on test set, shape (N, )
+    """
+
+    # Extract artifacts of trained model
+    w = model["w"]
+    pca = model["pca_model"]
+    m_s, s_s = model["standardize_mean"], model["standardize_std"]
+    standardize = model["standardize"]
+
+    # Standardize test data from trained model, apply PCA, add intercept
+    if standardize:
+        Xte_std = (X_test - m_s) / s_s
+    else:
+        Xte_std = X_test
+
+    Zte = pca_transform(Xte_std, pca)
+    tx_te = add_intercept(Zte)
+
+    # Evaluate predictions
+    score = tx_te @ w                       # shape (N,)
+    yhat01 = (score >= 0.5).astype(int)
+    yhat_pm1 = 2 * yhat01 - 1
+
+    return {
+        "yhat_label_pm1": yhat_pm1,
+    }
+
+
+
 from preprocessing_subroutine import preprocess_data
 
 
@@ -473,12 +766,20 @@ def compute_f1_on_train(
     model_path="final_logreg_model.pkl",
     x_train_final=None,
     y_train=None,
+    is_logreg=True,
     verbose=True,
 ):
     """
     Compute precision, recall and F1 score on the training set using the provided
-    logistic regression model. The model can be passed directly (dict), or the
+    logistic regression or linear regression model. The model can be passed directly (dict), or the
     function will attempt to load it from `model_path`.
+    Args:
+        model: trained model dict (output of train_final_logreg_model or train_final_linreg_model)
+        model_path: path to load the model from if `model` is None
+        x_train_final: preprocessed training data (N x D); if None, will be obtained via preprocess_data()
+        y_train: training labels in {-1, +1}; if None, will be obtained via preprocess_data()
+        is_logreg: whether the model is logistic regression (True) or linear regression (False)
+        verbose: whether to print the computed precision, recall, and F1 score
 
     Returns: (precision, recall, f1)
     """
@@ -504,7 +805,10 @@ def compute_f1_on_train(
         )
 
     # Get predictions on training data
-    preds = classify_test_data(x_train_final, model)["yhat_label_pm1"]
+    if is_logreg:
+        preds = classify_test_data(x_train_final, model)["yhat_label_pm1"]
+    else:
+        preds = classify_test_data_linreg(x_train_final, model)["yhat_label_pm1"]
 
     # Ensure arrays are numpy arrays
     import numpy as _np
