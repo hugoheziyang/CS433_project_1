@@ -78,7 +78,7 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
 
     if verbose:
         print(f"model_training: training final model with k={k}, lambda={best_lambda}, gamma={best_gamma}", flush=True)
-    return model
+    
     model = train_final_logreg_model(X_train=x_train_final,
         y_train_pm1=y_train,
         k=k,
