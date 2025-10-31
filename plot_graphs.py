@@ -1,35 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-### Plot the explained variance ratio vs number of PCA components
 
+# Plot mean validation f1 over (gamma, lambda) grid for logistic regression
 
-def plot_explained_variance(pca_model):
-    """
-    Plot the explained variance ratio vs number of PCA components.
-    Args:
-        pca_model: dict returned by pca_fit function
-    """
-    explained_variance_ratio = pca_model["explained_variance_ratio"]
-    cumulative_variance = np.cumsum(explained_variance_ratio)
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(
-        np.arange(1, len(explained_variance_ratio) + 1), cumulative_variance, marker="o"
-    )
-    plt.xlabel("Number of PCA Components (k)")
-    plt.ylabel("Cumulative Explained Variance Ratio")
-    plt.title("Explained Variance Ratio vs Number of PCA Components")
-    plt.grid()
-    plt.axhline(y=0.9, color="r", linestyle="--", label="90% Variance Threshold")
-    plt.legend()
-    plt.show()
-
-
-### Plot mean validation loss over (gamma, lambda) grid
-
-
-def plot_cv_surface(cv_f1, fontsize=13):
+def plot_f1_logreg(cv_f1, fontsize=13):
     """
     Visualize mean validation F1 over (gamma, lambda) grid.
     Automatically detects and marks the best (gamma, lambda) pair.
@@ -100,5 +75,44 @@ def plot_cv_surface(cv_f1, fontsize=13):
     plt.yticks(gx if M > 1 else [gx[0]], [f"{v:.0e}" for v in gammas],
                fontsize=fontsize - 2)
 
+    plt.tight_layout()
+    plt.show()
+
+
+# Plot mean validation f1 over lambda for linear regression
+
+def plot_f1_linreg(cv_f1, fontsize=13):
+    """
+    Plot mean validation F1 as a function of lambda for linear regression.
+    Automatically detects and marks the best lambda.
+
+    Args:
+        cv_f1: dict {lambda: mean_f1_score}
+        fontsize: base font size for labels, legend, etc.
+    """
+    # Sort lambdas and get corresponding F1 scores
+    lambdas = np.array(sorted(cv_f1.keys()))
+    f1_scores = np.array([cv_f1[l] for l in lambdas])
+
+    # Sanity: log10 requires positive lambdas
+    if any(l <= 0 for l in lambdas):
+        raise ValueError("All lambda values must be > 0 for log10 plotting.")
+
+    # Find best lambda (max F1)
+    best_lambda = lambdas[np.argmax(f1_scores)]
+    best_f1 = np.max(f1_scores)
+
+    # Plot
+    plt.figure(figsize=(8, 5))
+    plt.plot(np.log10(lambdas), f1_scores, "-o", label="Mean F1 across folds")
+    plt.scatter(np.log10(best_lambda), best_f1, color="red", s=100, marker="x",
+                label=f"Best λ = {best_lambda:.2e}\nF1 = {best_f1:.3f}")
+
+    # Labels / title
+    plt.xlabel("log10(lambda)", fontsize=fontsize)
+    plt.ylabel("Mean validation F1", fontsize=fontsize)
+    plt.title("Cross-Validation F1 vs λ (Linear Regression)", fontsize=fontsize + 2)
+    plt.legend(fontsize=fontsize - 2)
+    plt.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
     plt.show()
