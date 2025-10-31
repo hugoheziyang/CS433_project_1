@@ -15,7 +15,7 @@ This project implements a **machine learning pipeline** to predict the likelihoo
 ---
 
 ## Requirements
-Numpy and Matplotlib external libraries required to run code. To install them, run in command line:
+Numpy and Matplotlib external libraries are required to run code. To install them, run in command line:
 
 ```bash
 python -m venv .venv
@@ -68,4 +68,4 @@ The trained logistic regression model is stored in `final_logreg_model.pkl` upon
 
 ## Other repositories
 - `./tests` includes tests used to verify certain preprocessing functions
-- `./figures` includes the graphs used in the written report
+- `./figures` includes the graphs used in the written report `project1_report.pdf`
