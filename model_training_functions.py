@@ -227,9 +227,6 @@ def cv_logreg(
                 if k > min(D, n_train):
                     raise ValueError(f"k={k} exceeds min(D={D}, n_train={n_train}).")
 
-                # Optional verbose timing around PCA fit and transform to detect slow folds
-                if verbose:
-                    print(f"    [fold {fold_i}/{K}] Starting PCA fit+transform (k={k})")
                 pca_fit_start = time.time()
                 pca = pca_fit(X_tr_std, k=k)
                 pca_fit_elapsed = time.time() - pca_fit_start
@@ -238,11 +235,6 @@ def cv_logreg(
                 Z_tr = pca_transform(X_tr_std, pca)  # PCA-transformed training data
                 Z_val = pca_transform(X_val_std, pca)  # PCA-transformed validation data
                 transform_elapsed = time.time() - transform_start
-
-                if verbose:
-                    print(
-                        f"    [fold {fold_i}/{K}] PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s, Z_tr={Z_tr.shape}, Z_val={Z_val.shape}"
-                    )
 
                 # Build design matrices (add intercept)
                 tx_tr = add_intercept(Z_tr)
@@ -286,7 +278,7 @@ def cv_logreg(
 
                 fold_scores.append(f1)
                 if verbose:
-                    print(f"  [fold {fold_i}/{K}] val_f1 = {f1:.6f}")
+                    print(f"  [fold {fold_i}/{K}] val_f1 = {f1:.6f}, PCA fit time={pca_fit_elapsed:.2f}s, transform time={transform_elapsed:.2f}s")
 
             mean_loss = float(np.mean(fold_scores))
             hp_elapsed = time.time() - hp_start

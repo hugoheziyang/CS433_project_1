@@ -28,13 +28,14 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
     
     # Variables subject to modification
     if gamma_list is None:
-        gamma_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] # step size for logistic regression training # start with coarse grid search with 3 values and refine later
+        # use log scale for gamma values
+        gamma_list = np.logspace(-3, -0.3, 5)  # candidate gamma (step-size) values for gradient descent
     
     if lambda_list is None:
-        lambda_list = [0.001, 0.01, 0.1] # candidate lambda values for ridge regularization # start with coarse grid search with 3 values and refine later
+        lambda_list = np.logspace(-3, -0.07, 8)  # candidate lambda (regularization strength) values for ridge regularization
  
     if k is None:
-        k = 15  # PCA : fix k the number of selected principal components
+        k = 90  # PCA : fix k the number of selected principal components
     
     K = 5   # number of folds for cross-validation   
     seed = 42  # random seed for reproducibility in K-fold cross validation splitting 
@@ -77,7 +78,7 @@ def model_training(k=None, gamma_list=None, lambda_list=None, verbose=True):
 
     if verbose:
         print(f"model_training: training final model with k={k}, lambda={best_lambda}, gamma={best_gamma}", flush=True)
-
+    return model
     model = train_final_logreg_model(X_train=x_train_final,
         y_train_pm1=y_train,
         k=k,
